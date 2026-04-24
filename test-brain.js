@@ -1,70 +1,95 @@
 require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// 👇 ------- 核心：强制 Node.js 底层网络走代理 ------- 👇
+// 👇 1. 强制 Node.js 底层网络走代理 (你刚才测通的魔法)
 const { ProxyAgent, setGlobalDispatcher } = require('undici');
-const proxyUrl = "http://192.168.247.1:7890"; // 刚才 curl 测试成功的地址
-const proxyAgent = new ProxyAgent(proxyUrl);
-setGlobalDispatcher(proxyAgent);
-// 👆 ------------------------------------------------ 👆
+const proxyUrl = "http://192.168.247.1:7890";
+setGlobalDispatcher(new ProxyAgent(proxyUrl));
 
+// 初始化 Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-async function testBrain() {
-    console.log("🧠 正在唤醒 Claudio 大脑...");
+// 初始化服务器
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, path: '/stream' });
 
-    let userTaste = "";
-    try {
-        userTaste = fs.readFileSync('./user/taste.md', 'utf-8');
-        console.log("✅ 成功读取用户品味...");
-    } catch (e) {
-        userTaste = "喜欢轻松的爵士乐和 R&B。";
-    }
+app.use(express.static('public'));
 
-    const systemInstruction = `
-        You are Claudio, a personal AI Radio DJ. 
-        User's musical taste: ${userTaste}
-        Current context: It's morning. The user just woke up.
-        
-        Task: Recommend exactly 1 song to start the user's day based on their taste.
-        
-        CRITICAL INSTRUCTION: You must respond ONLY with a valid JSON object. Do not include markdown formatting like \`\`\`json. 
-        Use this exact schema:
-        {
-            "say": "The DJ's friendly spoken script greeting the user and introducing the song",
-            "play": [
-                {
-                    "id": "12345", 
-                    "name": "Song Title", 
-                    "artist": "Artist Name", 
-                    "reason": "Brief reason for this song"
-                }
-            ],
-            "reason": "Your internal thought process for this segment",
-            "segue": "direct"
+wss.on('connection', (ws) => {
+    console.log('🟢 前端网页已连接!');
+
+    ws.on('message', async (message) => {
+        const data = JSON.parse(message);
+
+        if (data.action === 'play') {
+            console.log('▶️ 收到播放指令，正在呼叫真实 AI 大脑...');
+
+            try {
+                // 2. 读取你的真实品味
+                let userTaste = fs.readFileSync('./user/taste.md', 'utf-8');
+
+                const systemInstruction = `
+                    You are Claudio, a personal AI Radio DJ. 
+                    User's musical taste: ${userTaste}
+                    Current context: It's time for some music.
+                    
+                    Task: Recommend exactly 1 song based on their taste.
+                    CRITICAL INSTRUCTION: Respond ONLY with a valid JSON object.
+                    {
+                        "say": "The DJ's friendly spoken script",
+                        "play": [{"id": "123", "name": "Song Title", "artist": "Artist Name", "reason": "..."}],
+                        "reason": "...",
+                        "segue": "direct"
+                    }
+                `;
+
+                // 3. 调用真实大模型 
+                // ⚠️ 注意：这里改成你刚才测试成功的模型名字！！！
+                const model = genAI.getGenerativeModel({
+                    model: "gemini-3-flash-preview",
+                    generationConfig: { responseMimeType: "application/json" }
+                });
+
+                const result = await model.generateContent(systemInstruction);
+                const jsonObj = JSON.parse(result.response.text());
+                console.log(`✅ AI 思考完毕！推荐了: ${jsonObj.play[0].name}`);
+
+                // 4. 将真实的 AI 结果通过管道推给前端
+                const responseData = {
+                    type: 'now-playing',
+                    track: {
+                        name: jsonObj.play[0].name,
+                        artist: jsonObj.play[0].artist,
+                        // 封面图我们暂时还是用占位图，等接了网易云再换真实的
+                        coverUrl: "https://via.placeholder.com/300x300/ff5722/ffffff?text=AI+DJ"
+                    },
+                    dj: {
+                        say: jsonObj.say
+                    }
+                };
+
+                ws.send(JSON.stringify(responseData));
+                console.log('📤 真实数据已推送到网页！');
+
+            } catch (error) {
+                console.error("❌ 大脑处理失败：", error.message);
+                // 告诉前端出错了
+                ws.send(JSON.stringify({
+                    type: 'now-playing',
+                    track: { name: "网络波动", artist: "未知", coverUrl: "" },
+                    dj: { say: "抱歉，我的大脑好像断线了，请检查终端报错。" }
+                }));
+            }
         }
-    `;
+    });
+});
 
-    try {
-        const model = genAI.getGenerativeModel({
-            model: "gemini-3-flash-preview",
-            generationConfig: { responseMimeType: "application/json" }
-        });
-
-        console.log("📡 已强制代理，正在向 Gemini 发送脑电波...\n");
-        const result = await model.generateContent(systemInstruction);
-        const responseText = result.response.text();
-
-        const jsonObj = JSON.parse(responseText);
-        console.log("🎉 ============ 唤醒成功！============");
-        console.log("🎙️ Claudio 准备说的话：\n", `"${jsonObj.say}"`);
-        console.log("🎵 准备播放的歌曲：\n", `${jsonObj.play[0].name} - ${jsonObj.play[0].artist}`);
-        console.log("=====================================\n");
-
-    } catch (error) {
-        console.error("❌ 依然失败：", error.message);
-    }
-}
-
-testBrain();
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`🚀 Claudio 完全体主控已启动: http://localhost:${PORT}`);
+});
