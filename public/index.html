@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Claudio - 个人 AI 电台</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="player-container">
+        <div class="header">
+            <span class="status-dot online"></span>
+            <span class="status-text">Claudio 正在倾听...</span>
+        </div>
+
+        <div class="album-art">
+            <img id="cover-img" src="https://via.placeholder.com/300x300/1e1e1e/333333?text=Claudio" alt="Album Cover">
+        </div>
+
+        <div class="track-info">
+            <h2 id="track-title">等待播放</h2>
+            <p id="track-artist">Claudio AI DJ</p>
+        </div>
+
+        <div class="dj-subtitle-box">
+            <i class="fas fa-microphone-alt"></i>
+            <p id="dj-text">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</p>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="progress"></div>
+            <div class="time-info">
+                <span id="current-time">0:00</span>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-icon" id="prev-btn"><i class="fas fa-step-backward"></i></button>
+            <button class="btn-play" id="play-btn"><i class="fas fa-play"></i></button>
+            <button class="btn-icon" id="next-btn"><i class="fas fa-step-forward"></i></button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
