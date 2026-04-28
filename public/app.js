@@ -1,3 +1,7 @@
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     const nextBtn = document.getElementById('next-btn');

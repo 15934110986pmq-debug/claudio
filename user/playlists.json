@@ -1,0 +1,21 @@
+{
+  "favorites": [
+    { "name": "花に亡霊", "artist": "ヨルシカ" },
+    { "name": "Feather", "artist": "Nujabes" },
+    { "name": "Luv(sic) Part 3", "artist": "Nujabes" },
+    { "name": "春泥棒", "artist": "ヨルシカ" },
+    { "name": "Pretender", "artist": "Official髭男dism" },
+    { "name": "On the Nature of Daylight", "artist": "Max Richter" },
+    { "name": "Experience", "artist": "Ludovico Einaudi" },
+    { "name": "Plastic Love", "artist": "竹内まりや" },
+    { "name": "Sunset Lover", "artist": "Petit Biscuit" },
+    { "name": "逃げ水", "artist": "米津玄師" }
+  ],
+  "moods": {
+    "morning": ["日系摇滚", "爵士Hip-hop", "City Pop"],
+    "focus":   ["纯音乐", "Lo-fi", "钢琴爵士"],
+    "evening": ["City Pop", "Bossa Nova", "电子"],
+    "night":   ["Ambient", "后摇", "钢琴独奏"]
+  },
+  "blacklist": ["重金属", "死亡金属", "噪音"]
+}
