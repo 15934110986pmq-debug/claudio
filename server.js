@@ -2,124 +2,181 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const fs = require('fs');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const path = require('path');
+const os = require('os');
+const EventEmitter = require('events');
 
-// 👇 引入刚才写好的网易云音乐搬运工
-const { fetchRealMusic } = require('./netease.js'); 
+// ── Layers ────────────────────────────────────────────────────────────────────
+const router = require('./src/layers/local-brain/router');
+const scheduler = require('./src/layers/local-brain/scheduler');
+const tts = require('./src/layers/local-brain/tts');
+const state = require('./src/layers/local-brain/state');
+const { fetchRealMusic } = require('./src/layers/external/netease');
+const { pushAudio } = require('./src/layers/external/upnp');
 
-// 强制 Node.js 底层网络走代理
-const { ProxyAgent, setGlobalDispatcher } = require('undici');
-const proxyUrl = "http://192.168.247.1:7890";
-setGlobalDispatcher(new ProxyAgent(proxyUrl));
+// Proxy (optional — remove if not needed)
+if (process.env.PROXY_URL) {
+    const { ProxyAgent, setGlobalDispatcher } = require('undici');
+    setGlobalDispatcher(new ProxyAgent(process.env.PROXY_URL));
+}
 
-// 初始化 Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// 初始化服务器
+// ── App setup ─────────────────────────────────────────────────────────────────
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/stream' });
+const bus = new EventEmitter();
 
+app.use(express.json());
 app.use(express.static('public'));
 
+// Serve cached TTS audio files
+app.use('/tts', express.static(path.join(__dirname, 'cache/tts')));
+
+// ── HTTP API ──────────────────────────────────────────────────────────────────
+
+// GET /api/plan/today — returns today's scheduled plan (or triggers one)
+app.get('/api/plan/today', async (req, res) => {
+    const today = new Date().toISOString().slice(0, 10);
+    let plan = await state.getPlan(today).catch(() => null);
+
+    if (!plan) {
+        try {
+            const result = await router.handle('为我规划今天的音频日程，输出一段简短描述。');
+            plan = result.say || '今天我来为你随机选曲。';
+            await state.savePlan(today, plan);
+        } catch {
+            plan = '今天随机模式。';
+        }
+    }
+
+    res.json({ date: today, plan });
+});
+
+// POST /api/chat — text input from the player UI
+app.post('/api/chat', async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message required' });
+
+    try {
+        await state.saveMessage('user', message);
+        const result = await router.handle(message);
+        await state.saveMessage('assistant', result.say || '');
+
+        if (result.action === 'BROADCAST' && result.play?.length > 0) {
+            broadcastResult(result);
+        }
+
+        res.json({ ok: true, say: result.say });
+    } catch (err) {
+        console.error('[/api/chat]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
 wss.on('connection', (ws) => {
-    console.log('🟢 前端网页已连接!');
+    console.log('[WS] 前端已连接');
 
-    ws.on('message', async (message) => {
-        const data = JSON.parse(message);
-        
+    // Forward bus events to this client
+    const onBroadcast = (payload) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(payload));
+        }
+    };
+    bus.on('broadcast', onBroadcast);
+
+    ws.on('message', async (raw) => {
+        let data;
+        try { data = JSON.parse(raw); } catch { return; }
+
         if (data.action === 'play') {
-            console.log('▶️ 收到播放指令，正在呼叫真实 AI 大脑...');
-            
+            ws.send(JSON.stringify({ type: 'status', message: '正在为你思考...' }));
             try {
-                // 1. 读取品味并生成 Prompt
-                let userTaste = fs.readFileSync('./user/taste.md', 'utf-8');
-                
-                const systemInstruction = `
-                    You are Claudio, a personal AI Radio DJ. 
-                    User's musical taste: ${userTaste}
-                    Current context: It's time for some music.
-                    
-                    Task: Recommend exactly 1 song based on their taste.
-                    CRITICAL INSTRUCTION: Respond ONLY with a valid JSON object.
-                    {
-                        "say": "The DJ's friendly spoken script",
-                        "play": [{"id": "123", "name": "Song Title", "artist": "Artist Name", "reason": "..."}],
-                        "reason": "...",
-                        "segue": "direct"
-                    }
-                `;
-
-                // 2. 调用 Gemini
-                const model = genAI.getGenerativeModel({ 
-                    model: "gemini-3-flash-preview", // 确保这里是你测试通的模型名
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-
-                const result = await model.generateContent(systemInstruction);
-                
-                // ==========================================
-                // 👇 这里就是你刚才那段代码插入的位置 👇
-                // ==========================================
-                
-                // --- 1. 获取 Gemini 的推荐 ---
-                const jsonObj = JSON.parse(result.response.text());
-                const recommendedSong = jsonObj.play[0];
-                console.log(`✅ AI 推荐了: ${recommendedSong.name} - ${recommendedSong.artist}`);
-
-                // --- 2. 召唤音乐搬运工，去网易云拿 MP3 ---
-                const realMusicInfo = await fetchRealMusic(recommendedSong.name, recommendedSong.artist);
-
-                if (realMusicInfo) {
-                    // --- 3. 把真实的音乐数据通过 WebSocket 推给网页 ---
-                    const responseData = {
-                        type: 'now-playing',
-                        track: {
-                            name: realMusicInfo.name,
-                            artist: realMusicInfo.artist,
-                            coverUrl: realMusicInfo.coverUrl, // 真实的专辑封面
-                            audioUrl: realMusicInfo.audioUrl  // 真实的 MP3 链接
-                        },
-                        dj: { say: jsonObj.say }
-                    };
-                    ws.send(JSON.stringify(responseData));
-                    console.log('📤 包含真实 MP3 链接的数据已推送！');
-                } else {
-                    // 容错处理：如果网易云没搜到
-                    ws.send(JSON.stringify({
-                        type: 'now-playing',
-                        track: { name: "暂无版权或无法播放", artist: recommendedSong.artist, coverUrl: "" },
-                        dj: { say: `我本来想给你播《${recommendedSong.name}》，但发现唱片机坏了，换一首试试吧。` }
-                    }));
-                }
-                
-                // ==========================================
-                // 👆 你刚才那段代码结束的位置 👆
-                // ==========================================
-
-            } catch (error) {
-                console.error("❌ 大脑处理失败：", error.message);
-                ws.send(JSON.stringify({
-                    type: 'now-playing',
-                    track: { name: "网络波动", artist: "未知", coverUrl: "" },
-                    dj: { say: "抱歉，我的大脑好像断线了，请检查终端报错。" }
-                }));
+                const result = await router.handle('根据当前时间和我的心情推荐一首歌。');
+                await broadcastResult(result, ws);
+            } catch (err) {
+                console.error('[WS play]', err.message);
+                ws.send(JSON.stringify({ type: 'error', message: '大脑出错了，请检查终端。' }));
             }
         }
+
+        if (data.action === 'next') {
+            ws.send(JSON.stringify({ type: 'status', message: '换一首...' }));
+            try {
+                const result = await router.handle('换一首，风格可以稍有不同。');
+                await broadcastResult(result, ws);
+            } catch (err) {
+                ws.send(JSON.stringify({ type: 'error', message: '换歌失败。' }));
+            }
+        }
+
+        if (data.action === 'pause') {
+            // Client-side only; nothing to do server-side
+        }
+    });
+
+    ws.on('close', () => {
+        bus.off('broadcast', onBroadcast);
+        console.log('[WS] 前端已断开');
     });
 });
 
-const os = require('os');
+// ── Core broadcast logic ──────────────────────────────────────────────────────
+async function broadcastResult(result, directWs = null) {
+    const send = (payload) => {
+        if (directWs) {
+            if (directWs.readyState === WebSocket.OPEN) directWs.send(JSON.stringify(payload));
+        } else {
+            bus.emit('broadcast', payload);
+        }
+    };
+
+    // 1. TTS: convert DJ speech to audio
+    let ttsUrl = null;
+    if (result.say) {
+        ttsUrl = await tts.textToSpeech(result.say).catch(() => null);
+    }
+
+    // 2. Resolve music from Netease
+    let track = null;
+    if (result.play?.length > 0) {
+        const rec = result.play[0];
+        const music = await fetchRealMusic(rec.name, rec.artist).catch(() => null);
+        if (music) {
+            track = music;
+            await state.savePlay({ id: music.id || '', name: music.name, artist: music.artist }).catch(() => {});
+        }
+    }
+
+    // 3. Push to UPnP speaker (if configured)
+    if (track?.audioUrl) {
+        pushAudio(track.audioUrl).catch(() => {});
+    }
+
+    // 4. Broadcast to PWA
+    send({
+        type: 'now-playing',
+        dj: { say: result.say, ttsUrl },
+        track: track || { name: result.say ? '(仅 DJ 播报)' : '暂无', artist: '', coverUrl: '', audioUrl: '' }
+    });
+}
+
+// ── Scheduler wiring ──────────────────────────────────────────────────────────
+scheduler.setBroadcaster(async (input, extras) => {
+    const result = await router.handle(input, extras);
+    if (result.action === 'BROADCAST') {
+        await broadcastResult(result);
+    }
+});
+
+scheduler.init();
+
+// ── Start ─────────────────────────────────────────────────────────────────────
 function getLocalIP() {
-    const interfaces = os.networkInterfaces();
-    for (const devName in interfaces) {
-        const iface = interfaces[devName];
-        for (let i = 0; i < iface.length; i++) {
-            const alias = iface[i];
-            if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
-                return alias.address;
-            }
+    const ifaces = os.networkInterfaces();
+    for (const dev of Object.values(ifaces)) {
+        for (const alias of dev) {
+            if (alias.family === 'IPv4' && !alias.internal) return alias.address;
         }
     }
     return 'localhost';
@@ -128,5 +185,7 @@ function getLocalIP() {
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
-    console.log(`🚀 Claudio 完全体主控已启动: http://${ip}:${PORT}`);
+    console.log(`\n🎙️  Claudio 已启动`);
+    console.log(`   本地访问: http://localhost:${PORT}`);
+    console.log(`   局域网  : http://${ip}:${PORT}\n`);
 });
