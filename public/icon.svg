@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="114" fill="#1c1917"/>
+  <!-- 暖橙背景圆 -->
+  <circle cx="256" cy="256" r="180" fill="#cc785c" opacity=".12"/>
+  <!-- 字母 C 形状：大圆弧缺口朝右 -->
+  <path d="M320 138 A140 140 0 1 0 320 374" fill="none" stroke="#cc785c" stroke-width="48" stroke-linecap="round"/>
+  <!-- 中心小点 -->
+  <circle cx="256" cy="256" r="22" fill="#e8a07a"/>
+</svg>

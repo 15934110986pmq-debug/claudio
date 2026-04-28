@@ -1,56 +1,108 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Claudio - 个人 AI 电台</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#ff5722">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Claudio</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1c1917">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Claudio">
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <div class="player-container">
-        <div class="header">
-            <span class="status-dot online"></span>
-            <span class="status-text">Claudio 正在倾听...</span>
-        </div>
 
-        <div class="album-art">
-            <img id="cover-img" src="https://via.placeholder.com/300x300/1e1e1e/333333?text=Claudio" alt="Album Cover">
-        </div>
+  <!-- 动态背景：专辑封面模糊 -->
+  <div class="bg-layer" id="bg-a"></div>
+  <div class="bg-layer" id="bg-b"></div>
+  <div class="bg-overlay"></div>
 
-        <div class="track-info">
-            <h2 id="track-title">等待播放</h2>
-            <p id="track-artist">Claudio AI DJ</p>
-        </div>
+  <div class="app">
 
-        <div class="dj-subtitle-box">
-            <i class="fas fa-microphone-alt"></i>
-            <p id="dj-text">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</p>
-        </div>
+    <!-- 顶部状态栏 -->
+    <header class="topbar">
+      <div class="eq" id="eq" aria-hidden="true">
+        <span class="eq-bar"></span>
+        <span class="eq-bar"></span>
+        <span class="eq-bar"></span>
+      </div>
+      <span class="app-name">CLAUDIO</span>
+      <div class="conn-dot" id="conn-dot"></div>
+    </header>
 
-        <div class="progress-container">
-            <div class="progress-track">
-                <div class="progress-fill" id="progress"></div>
-            </div>
-            <div class="time-info">
-                <span id="current-time">0:00</span>
-                <span id="total-time">0:00</span>
-            </div>
+    <!-- 专辑封面 -->
+    <div class="album-stage" id="album-stage">
+      <div class="album-glow" id="album-glow"></div>
+      <div class="album-frame" id="album-frame">
+        <img class="album-img layer-a active" id="cover-a" src="" alt="">
+        <img class="album-img layer-b"        id="cover-b" src="" alt="">
+        <div class="album-idle" id="album-idle">
+          <svg viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="24" stroke="currentColor" stroke-width="2" opacity=".3"/>
+            <circle cx="40" cy="40" r="6"  fill="currentColor" opacity=".4"/>
+            <path d="M52 22 L52 38 L40 38" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+          </svg>
         </div>
-
-        <div class="controls">
-            <button class="btn-icon" id="prev-btn"><i class="fas fa-step-backward"></i></button>
-            <button class="btn-play" id="play-btn"><i class="fas fa-play"></i></button>
-            <button class="btn-icon" id="next-btn"><i class="fas fa-step-forward"></i></button>
-        </div>
+      </div>
     </div>
-    <script src="app.js"></script>
-</body>
 
+    <!-- 曲目信息 -->
+    <div class="track-block">
+      <p class="track-title" id="track-title">等待播放</p>
+      <p class="track-artist" id="track-artist">Claudio · AI 电台</p>
+    </div>
+
+    <!-- DJ 说话区 -->
+    <div class="dj-card" id="dj-card">
+      <svg class="dj-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 4a1 1 0 0 1 2 0v6a1 1 0 0 1-2 0V4zM5.5 7a1 1 0 0 1 2 0v2a1 1 0 0 1-2 0V7zM13.5 7a1 1 0 0 1 2 0v2a1 1 0 0 1-2 0V7zM3 10a1 1 0 0 1 2 0 5 5 0 0 0 10 0 1 1 0 0 1 2 0 7 7 0 0 1-6 6.92V18h2a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2h2v-1.08A7 7 0 0 1 3 10z"/>
+      </svg>
+      <p class="dj-text" id="dj-text">准备好了吗？</p>
+      <span class="dj-cursor" id="dj-cursor" aria-hidden="true"></span>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-section">
+      <div class="progress-rail" id="progress-rail">
+        <div class="progress-fill" id="progress"></div>
+        <div class="progress-thumb" id="progress-thumb"></div>
+      </div>
+      <div class="time-row">
+        <span id="current-time">0:00</span>
+        <span id="total-time">0:00</span>
+      </div>
+    </div>
+
+    <!-- 控制栏 -->
+    <div class="controls">
+      <button class="ctrl-btn" id="prev-btn" aria-label="上一首">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+        </svg>
+      </button>
+
+      <button class="play-btn" id="play-btn" aria-label="播放/暂停">
+        <svg class="icon-play"  viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        <svg class="icon-spin"  viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="14 42"/>
+        </svg>
+      </button>
+
+      <button class="ctrl-btn" id="next-btn" aria-label="下一首">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 底部状态文字 -->
+    <p class="status-line" id="status-line">点击播放键开始</p>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>

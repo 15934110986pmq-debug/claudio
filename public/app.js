@@ -1,127 +1,274 @@
+// ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const playBtn = document.getElementById('play-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const playIcon = playBtn.querySelector('i');
-    const statusText = document.getElementById('status-text');
-    const progressBar = document.getElementById('progress');
-    const currentTimeEl = document.getElementById('current-time');
-    const totalTimeEl = document.getElementById('total-time');
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
 
-    const musicPlayer = new Audio();
-    const ttsPlayer = new Audio();
-    let isPlaying = false;
+const bgA        = $('bg-a');
+const bgB        = $('bg-b');
+const albumStage = $('album-stage');
+const albumFrame = $('album-frame');
+const albumIdle  = $('album-idle');
+const albumGlow  = $('album-glow');
+const coverA     = $('cover-a');
+const coverB     = $('cover-b');
+const trackTitle = $('track-title');
+const trackArtist= $('track-artist');
+const trackBlock = document.querySelector('.track-block');
+const djCard     = $('dj-card');
+const djTextEl   = $('dj-text');
+const djCursor   = $('dj-cursor');
+const progressEl = $('progress');
+const thumbEl    = $('progress-thumb');
+const currentTimeEl = $('current-time');
+const totalTimeEl   = $('total-time');
+const playBtn    = $('play-btn');
+const nextBtn    = $('next-btn');
+const prevBtn    = $('prev-btn');
+const statusLine = $('status-line');
+const connDot    = $('conn-dot');
+const eq         = $('eq');
 
-    // Use relative WS URL so it works on both localhost and LAN/PWA
-    const wsUrl = `ws://${location.host}/stream`;
-    const ws = new WebSocket(wsUrl);
+// ── State ─────────────────────────────────────────────────────────────────────
+let activeCover = 'a';   // which img layer is visible
+let activeBg    = 'a';   // which bg layer is visible
+let isPlaying   = false;
+let isLoading   = false;
+let typeTimer   = null;
 
-    ws.onopen = () => setStatus('已连接，准备就绪');
-    ws.onclose = () => setStatus('连接断开，请刷新');
+const musicPlayer = new Audio();
+const ttsPlayer   = new Audio();
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+let ws;
+let wsRetry = 0;
 
-        if (data.type === 'status') {
-            setStatus(data.message);
-            return;
-        }
+function connect() {
+    const url = `ws://${location.host}/stream`;
+    ws = new WebSocket(url);
 
-        if (data.type === 'error') {
-            setStatus('⚠ ' + data.message);
-            return;
-        }
-
-        if (data.type === 'now-playing') {
-            const { track, dj } = data;
-
-            // Update UI
-            document.getElementById('track-title').textContent = track.name || '—';
-            document.getElementById('track-artist').textContent = track.artist || '';
-            if (track.coverUrl) document.getElementById('cover-img').src = track.coverUrl;
-            if (dj?.say) document.getElementById('dj-text').textContent = `"${dj.say}"`;
-
-            setStatus('正在播放');
-            isPlaying = true;
-            playIcon.classList.remove('fa-play');
-            playIcon.classList.add('fa-pause');
-
-            // Play TTS first, then music
-            if (dj?.ttsUrl && track.audioUrl) {
-                ttsPlayer.src = dj.ttsUrl;
-                ttsPlayer.play().catch(() => {});
-                ttsPlayer.onended = () => {
-                    musicPlayer.src = track.audioUrl;
-                    musicPlayer.play().catch(() => {});
-                };
-            } else if (track.audioUrl) {
-                musicPlayer.src = track.audioUrl;
-                musicPlayer.play().catch(() => {});
-            } else if (dj?.ttsUrl) {
-                ttsPlayer.src = dj.ttsUrl;
-                ttsPlayer.play().catch(() => {});
-            }
-        }
+    ws.onopen = () => {
+        wsRetry = 0;
+        connDot.classList.add('connected');
+        setStatus('已连接');
     };
 
-    // Progress bar
-    musicPlayer.addEventListener('timeupdate', () => {
-        if (!musicPlayer.duration) return;
-        const pct = (musicPlayer.currentTime / musicPlayer.duration) * 100;
-        progressBar.style.width = pct + '%';
-        currentTimeEl.textContent = fmt(musicPlayer.currentTime);
-        totalTimeEl.textContent = fmt(musicPlayer.duration);
-    });
+    ws.onclose = () => {
+        connDot.classList.remove('connected');
+        setStatus('连接断开…');
+        const delay = Math.min(1000 * 2 ** wsRetry++, 16000);
+        setTimeout(connect, delay);
+    };
 
-    // Auto-next when song ends
-    musicPlayer.addEventListener('ended', () => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ action: 'next' }));
-        }
-    });
+    ws.onmessage = (e) => {
+        let data;
+        try { data = JSON.parse(e.data); } catch { return; }
 
-    // Play / Pause button
-    playBtn.addEventListener('click', () => {
-        if (!isPlaying) {
-            isPlaying = true;
-            playIcon.classList.replace('fa-play', 'fa-pause');
-            if (musicPlayer.src) {
-                musicPlayer.play().catch(() => {});
-            } else if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: 'play' }));
-            }
+        if (data.type === 'status') { setStatus(data.message); return; }
+        if (data.type === 'error')  { setStatus('⚠ ' + data.message); setLoading(false); return; }
+        if (data.type === 'now-playing') handleNowPlaying(data);
+    };
+
+    ws.onerror = () => {};
+}
+
+connect();
+
+// ── Now Playing ───────────────────────────────────────────────────────────────
+function handleNowPlaying({ track, dj }) {
+    setLoading(false);
+
+    // 1. 更新封面（交叉淡入）
+    if (track.coverUrl) {
+        updateCover(track.coverUrl);
+        updateBackground(track.coverUrl);
+    }
+
+    // 2. 曲目信息切换动画
+    trackBlock.classList.add('changing');
+    setTimeout(() => {
+        trackTitle.textContent  = track.name   || '—';
+        trackArtist.textContent = track.artist || '';
+        trackBlock.classList.remove('changing');
+        trackTitle.classList.add('slide-in');
+        trackArtist.classList.add('slide-in');
+        setTimeout(() => {
+            trackTitle.classList.remove('slide-in');
+            trackArtist.classList.remove('slide-in');
+        }, 500);
+    }, 300);
+
+    // 3. DJ 文字打字机
+    if (dj?.say) typeWriter(dj.say);
+
+    // 4. 播放音频（TTS → 音乐）
+    setPlaying(true);
+    albumIdle.classList.add('hidden');
+
+    if (dj?.ttsUrl && track.audioUrl) {
+        ttsPlayer.src = dj.ttsUrl;
+        ttsPlayer.play().catch(() => {});
+        ttsPlayer.onended = () => startMusic(track.audioUrl);
+    } else if (track.audioUrl) {
+        startMusic(track.audioUrl);
+    } else if (dj?.ttsUrl) {
+        ttsPlayer.src = dj.ttsUrl;
+        ttsPlayer.play().catch(() => {});
+    }
+}
+
+function startMusic(url) {
+    musicPlayer.src = url;
+    musicPlayer.play().catch(() => setStatus('无法自动播放，请点击播放键'));
+}
+
+// ── 封面交叉淡入 ──────────────────────────────────────────────────────────────
+function updateCover(url) {
+    const next = activeCover === 'a' ? 'b' : 'a';
+    const nextEl = next === 'a' ? coverA : coverB;
+    const prevEl = next === 'a' ? coverB : coverA;
+
+    nextEl.src = url;
+    albumFrame.classList.add('loading');
+
+    nextEl.onload = () => {
+        albumFrame.classList.remove('loading');
+        nextEl.classList.add('active');
+        prevEl.classList.remove('active');
+        activeCover = next;
+    };
+    nextEl.onerror = () => albumFrame.classList.remove('loading');
+}
+
+// ── 背景模糊切换 ──────────────────────────────────────────────────────────────
+function updateBackground(url) {
+    const nextEl = activeBg === 'a' ? bgB : bgA;
+    const prevEl = activeBg === 'a' ? bgA : bgB;
+
+    nextEl.style.backgroundImage = `url(${url})`;
+    nextEl.classList.remove('fade-out');
+    prevEl.classList.add('fade-out');
+    activeBg = activeBg === 'a' ? 'b' : 'a';
+}
+
+// ── 打字机效果 ────────────────────────────────────────────────────────────────
+function typeWriter(text) {
+    clearTimeout(typeTimer);
+    djTextEl.textContent = '';
+    djCursor.classList.add('typing');
+
+    let i = 0;
+    const tick = () => {
+        if (i < text.length) {
+            djTextEl.textContent += text[i++];
+            typeTimer = setTimeout(tick, i < 8 ? 60 : 28);
         } else {
-            isPlaying = false;
-            playIcon.classList.replace('fa-pause', 'fa-play');
-            musicPlayer.pause();
-            ttsPlayer.pause();
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ action: 'pause' }));
-            }
+            djCursor.classList.remove('typing');
         }
-    });
+    };
+    tick();
+}
 
-    // Next button
-    nextBtn.addEventListener('click', () => {
+// ── 进度条 ────────────────────────────────────────────────────────────────────
+musicPlayer.addEventListener('timeupdate', () => {
+    if (!musicPlayer.duration) return;
+    const pct = musicPlayer.currentTime / musicPlayer.duration * 100;
+    progressEl.style.width = pct + '%';
+    thumbEl.style.left = pct + '%';
+    currentTimeEl.textContent = fmt(musicPlayer.currentTime);
+    totalTimeEl.textContent   = fmt(musicPlayer.duration);
+});
+
+musicPlayer.addEventListener('ended', () => {
+    sendWS({ action: 'next' });
+    setStatus('换歌中…');
+    setLoading(true);
+});
+
+musicPlayer.addEventListener('waiting', () => setStatus('缓冲中…'));
+musicPlayer.addEventListener('playing', () => setStatus(''));
+
+// 可拖动进度条
+$('progress-rail').addEventListener('click', (e) => {
+    if (!musicPlayer.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    musicPlayer.currentTime = (e.clientX - rect.left) / rect.width * musicPlayer.duration;
+});
+
+// ── 控制按钮 ──────────────────────────────────────────────────────────────────
+playBtn.addEventListener('click', () => {
+    if (isLoading) return;
+
+    if (!isPlaying) {
+        if (musicPlayer.src) {
+            musicPlayer.play().catch(() => {});
+            setPlaying(true);
+        } else {
+            setLoading(true);
+            setStatus('正在思考…');
+            sendWS({ action: 'play' });
+        }
+    } else {
         musicPlayer.pause();
         ttsPlayer.pause();
-        if (ws.readyState === WebSocket.OPEN) {
-            setStatus('换歌中...');
-            ws.send(JSON.stringify({ action: 'next' }));
-        }
-    });
-
-    function setStatus(msg) {
-        if (statusText) statusText.textContent = msg;
-    }
-
-    function fmt(s) {
-        if (!s || isNaN(s)) return '0:00';
-        const m = Math.floor(s / 60);
-        const sec = Math.floor(s % 60);
-        return `${m}:${sec.toString().padStart(2, '0')}`;
+        setPlaying(false);
+        sendWS({ action: 'pause' });
     }
 });
+
+nextBtn.addEventListener('click', () => {
+    musicPlayer.pause();
+    ttsPlayer.pause();
+    resetProgress();
+    setLoading(true);
+    setStatus('换歌中…');
+    sendWS({ action: 'next' });
+});
+
+prevBtn.addEventListener('click', () => {
+    if (musicPlayer.currentTime > 4) {
+        musicPlayer.currentTime = 0;
+    } else {
+        musicPlayer.pause();
+        ttsPlayer.pause();
+        resetProgress();
+        setLoading(true);
+        sendWS({ action: 'play' });
+    }
+});
+
+// ── 辅助函数 ──────────────────────────────────────────────────────────────────
+function setPlaying(val) {
+    isPlaying = val;
+    playBtn.classList.toggle('playing', val);
+    albumStage.classList.toggle('playing', val);
+    eq.classList.toggle('active', val);
+}
+
+function setLoading(val) {
+    isLoading = val;
+    playBtn.classList.toggle('loading', val);
+    albumFrame.classList.toggle('loading', val);
+}
+
+function setStatus(msg) {
+    statusLine.textContent = msg;
+}
+
+function resetProgress() {
+    progressEl.style.width = '0%';
+    thumbEl.style.left = '0%';
+    currentTimeEl.textContent = '0:00';
+    totalTimeEl.textContent   = '0:00';
+}
+
+function sendWS(obj) {
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+function fmt(s) {
+    if (!s || isNaN(s)) return '0:00';
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+}
