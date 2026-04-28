@@ -1,20 +1,15 @@
-const gemini = require('./gemini');
+const claude = require('./claude');
 const context = require('./context');
 
 class IntentRouter {
-    async handle(input) {
-        // 1. Simple Command Routing (Heuristics)
-        if (input.toLowerCase() === 'stop') {
+    async handle(input, extras = {}) {
+        if (typeof input === 'string' && input.toLowerCase().trim() === 'stop') {
             return { action: 'STOP' };
         }
 
-        // 2. Natural Language Routing to Gemini
-        const fullPrompt = await context.assemble(input, { 
-            weather: 'sunny', // Placeholder for actual weather integration
-            status: 'idle'
-        });
+        const prompt = await context.assemble(input, extras);
+        const brainResponse = await claude.generateResponse(prompt);
 
-        const brainResponse = await gemini.generateResponse(fullPrompt);
         return {
             action: 'BROADCAST',
             ...brainResponse
