@@ -26,7 +26,8 @@ src/layers/
     router.js         入口路由（目前只有 BROADCAST / STOP）
     context.js        6 段 prompt 拼装
     claude.js         调用本机 claude CLI（默认大脑）
-    gemini.js         备用大脑（axios 调 Gemini API，未在 router 接入）
+    gemini.js         备用大脑（axios 调 Gemini API）
+    brain.js          编排器：claude → gemini → safe fallback（router 通过它进入）
     scheduler.js      node-cron：07:00 + 每整点 7-23
     state.js          SQLite (messages / plays / plan)
     tts.js            TTS 入口 + 文件缓存
@@ -52,7 +53,7 @@ cache/tts/            TTS 音频缓存（运行时创建）
 
 ## 扩展指引
 
-- **新增 LLM 提供商** → 在 `src/layers/local-brain/` 新建 `{provider}.js`，实现 `generateResponse(prompt)` 返回 `{say, play[], reason, segue}`，在 `router.js` 中切换。
+- **新增 LLM 提供商** → 在 `src/layers/local-brain/` 新建 `{provider}.js`，实现 `generateResponse(prompt)` 返回 `{say, play[], reason, segue}`，**失败时 throw**（让 `brain.js` 能切换）；在 `brain.js` 的 `REGISTRY` 里注册，并通过 `BRAIN_ORDER` 控制顺序。
 - **新增音乐源** → 在 `src/layers/external/` 新建适配器，实现 `fetchRealMusic(name, artist) → {id, name, artist, coverUrl, audioUrl}`。
 - **新增触发方式** → 在 `scheduler.js` 加 cron 或在 `server.js` 加 HTTP/WS handler，最终调用 `router.handle()`。
 - **改变输出 schema** → 同时更新 `prompts/dj-persona.md` 中的 JSON 规约和前端 `public/app.js` 的消费逻辑。
@@ -60,7 +61,7 @@ cache/tts/            TTS 音频缓存（运行时创建）
 ## 已知缺口（按可见优先级排序）
 
 1. **`user/playlists.json` 为空** — context.js 会读但内容是 `{}`。
-2. **`gemini.js` 已写但未接入 router** — 若 claude CLI 不可用应能切换。
+2. ~~**`gemini.js` 已写但未接入 router**~~ — ✅ 已接入：`brain.js` 编排 claude → gemini → safe fallback；顺序可用 `BRAIN_ORDER` 覆盖。配 `GEMINI_API_KEY` 才会真正生效。
 3. **`test-brain.js` 已陈旧** — 早期版本，写死代理、调用不存在的模型，与当前 src/ 不一致。建议删除或重写。
 4. **无 README.md**。
 5. **无测试**（无 jest/vitest，无 test script）。
