@@ -2,4 +2,9 @@ node_modules/
 data/
 cache/
 .env
+.env.local
 *.log
+
+# Personal Claude overrides — keep .claude/settings.json (project-level) in git,
+# but ignore any per-machine local overrides.
+.claude/settings.local.json
