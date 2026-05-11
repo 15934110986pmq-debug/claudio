@@ -1,4 +1,4 @@
-const claude = require('./claude');
+const brain = require('./brain');
 const context = require('./context');
 
 class IntentRouter {
@@ -8,7 +8,7 @@ class IntentRouter {
         }
 
         const prompt = await context.assemble(input, extras);
-        const brainResponse = await claude.generateResponse(prompt);
+        const brainResponse = await brain.generateResponse(prompt);
 
         return {
             action: 'BROADCAST',

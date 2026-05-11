@@ -52,7 +52,7 @@ npm start
 
 默认调用本机 `claude` CLI（Anthropic Claude Code），用 `--print --output json` 拿结构化输出。需要先安装并登录 Claude CLI。
 
-不想用 Claude CLI 也可以——`src/layers/local-brain/gemini.js` 已经写好备用，只要在 `router.js` 里替换 `require('./claude')` 为 `require('./gemini')` 并配置 `GEMINI_API_KEY`。
+**Gemini fallback**：`src/layers/local-brain/brain.js` 会先试 Claude，失败时自动切到 Gemini，两者都失败才返回兜底响应。只要配置 `GEMINI_API_KEY` 即可启用。需要时可用 `BRAIN_ORDER=gemini,claude` 反转顺序（例如新机器还没装 Claude CLI）。
 
 ---
 
@@ -121,7 +121,7 @@ JSON {say, play[]…}  ├── 已播记忆 (SQLite 最近 8 首)
 
 见 [`CLAUDE.md`](./CLAUDE.md#已知缺口按可见优先级排序) 中的"已知缺口"清单。当前优先级靠前的有：
 
-- [ ] 接入 `gemini.js` 作为 Claude CLI 不可用时的 fallback
+- [x] 接入 `gemini.js` 作为 Claude CLI 不可用时的 fallback（`brain.js`）
 - [ ] `user/playlists.json` schema 设计 + 编辑 UI
 - [ ] 前端 👍/👎 反馈按钮 → 写入 SQLite 反馈表
 - [ ] WebSocket 加上 token 鉴权

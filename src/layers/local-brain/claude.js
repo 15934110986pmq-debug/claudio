@@ -1,7 +1,9 @@
 const { spawn } = require('child_process');
 
-// Invokes claude -p --output json, parses NDJSON and extracts the result line.
-// The prompt must ask Claude to respond with JSON only: {say, play[], reason, segue}
+// Invokes claude --print --output json, parses NDJSON and extracts the result line.
+// The prompt must ask Claude to respond with JSON only: {say, play[], reason, segue}.
+// On any failure (spawn error, non-zero exit without stdout, missing result line,
+// result not parseable as JSON) this method rejects so the caller can fall back.
 class ClaudeBrain {
     async generateResponse(prompt) {
         return new Promise((resolve, reject) => {
@@ -21,47 +23,31 @@ class ClaudeBrain {
 
             proc.on('close', (code) => {
                 if (code !== 0 && !stdout) {
-                    console.error('[Claude] stderr:', stderr);
-                    return resolve(this._fallback(`exit code ${code}`));
+                    return reject(new Error(`claude exit ${code}: ${stderr.slice(0, 200)}`));
                 }
 
-                // NDJSON: find the {type:"result"} line
                 const lines = stdout.trim().split('\n');
                 for (let i = lines.length - 1; i >= 0; i--) {
                     try {
                         const obj = JSON.parse(lines[i]);
                         if (obj.type === 'result' && obj.result) {
-                            // Strip markdown code fences if present
                             const raw = obj.result.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
                             try {
                                 return resolve(JSON.parse(raw));
                             } catch {
-                                // result isn't JSON — fallback
-                                return resolve(this._fallback('result not JSON: ' + obj.result.slice(0, 80)));
+                                return reject(new Error('claude result not JSON: ' + obj.result.slice(0, 80)));
                             }
                         }
                     } catch {}
                 }
 
-                console.error('[Claude] Could not find result in output:', stdout.slice(0, 200));
-                resolve(this._fallback('no result line found'));
+                reject(new Error('claude: no result line in output: ' + stdout.slice(0, 200)));
             });
 
             proc.on('error', (err) => {
-                console.error('[Claude] spawn error:', err.message);
-                resolve(this._fallback(err.message));
+                reject(new Error(`claude spawn error: ${err.message}`));
             });
         });
-    }
-
-    _fallback(reason) {
-        console.warn('[Claude] fallback triggered:', reason);
-        return {
-            say: '我的思路刚才断了一下，不过音乐还在。',
-            play: [],
-            reason: reason,
-            segue: 'direct'
-        };
     }
 }
 
