@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0c0a09">
+    <title>Claudio — Now Playing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Ambient background -->
+    <div class="bg-blob b1" aria-hidden="true"></div>
+    <div class="bg-blob b2" aria-hidden="true"></div>
+    <div class="bg-blob b3" aria-hidden="true"></div>
+
+    <!-- Top nav -->
+    <nav class="player-nav">
+        <a class="nav-btn" href="/library.html" aria-label="打开 Library">
+            <span class="nav-arrow">←</span>
+            <span>Library</span>
+        </a>
+        <div class="nav-center" id="status-text">Claudio 正在倾听…</div>
+        <button class="nav-btn" aria-label="更多" type="button">•••</button>
+    </nav>
+
+    <main class="player-stage">
+
+        <!-- Left: vinyl + album cover -->
+        <section class="art-side">
+            <div class="vinyl-stage">
+                <div class="vinyl-wrapper">
+                    <div class="vinyl"><div class="vinyl-label"></div></div>
+                </div>
+                <div class="album-art" id="album-art">
+                    <img id="cover-img" alt=""
+                         src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><rect width='1' height='1' fill='%23000'/></svg>">
+                    <div class="album-art-label">Claudio</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: info & controls -->
+        <section class="info-side">
+
+            <div class="now-tag">
+                On Air
+                <span class="eq" id="eq" aria-hidden="true">
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                </span>
+            </div>
+
+            <h1 class="track-title" id="track-title">等待播放</h1>
+
+            <div class="track-meta">
+                <div class="artist" id="track-artist">Claudio AI DJ</div>
+                <div class="album-name">from <em>your taste, today</em></div>
+            </div>
+
+            <div class="lyrics">
+                <div class="lyrics-track" id="lyrics-track">
+                    <div class="lyric-line current">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</div>
+                </div>
+            </div>
+
+            <div class="controls-block">
+
+                <div class="progress">
+                    <span class="time" id="current-time">0:00</span>
+                    <div class="progress-bar" id="progress-bar">
+                        <div class="progress-fill" id="progress"></div>
+                    </div>
+                    <span class="time" id="total-time">0:00</span>
+                </div>
+
+                <div class="buttons">
+                    <button class="ctrl prev" id="prev-btn" title="上一首" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <polygon points="19 20 9 12 19 4 19 20" fill="currentColor"/>
+                            <line x1="5" y1="19" x2="5" y2="5"/>
+                        </svg>
+                    </button>
+
+                    <button class="play-btn" id="play-btn" title="播放/暂停" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+                            <path d="M7 4 L20 12 L7 20 Z"/>
+                        </svg>
+                    </button>
+
+                    <button class="ctrl next" id="next-btn" title="换一首" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/>
+                            <line x1="19" y1="5" x2="19" y2="19"/>
+                        </svg>
+                    </button>
+
+                    <div class="secondary-actions">
+                        <button class="ctrl heart" id="heart" title="喜欢" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                            <div class="heart-particles" aria-hidden="true">
+                                <div class="heart-particle" style="--tx:-22px; --ty:-18px;"></div>
+                                <div class="heart-particle" style="--tx: 22px; --ty:-18px;"></div>
+                                <div class="heart-particle" style="--tx:-28px; --ty:  4px;"></div>
+                                <div class="heart-particle" style="--tx: 28px; --ty:  4px;"></div>
+                                <div class="heart-particle" style="--tx:-14px; --ty: 22px;"></div>
+                                <div class="heart-particle" style="--tx: 14px; --ty: 22px;"></div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="audio-state.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

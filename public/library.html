@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c0a09">
+    <title>Claudio — Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="library.css">
+</head>
+<body>
+    <div class="library">
+
+        <nav class="topnav">
+            <a href="/" class="topnav-link" aria-label="返回播放器">
+                <span class="topnav-arrow">←</span>
+                <span class="topnav-text">Player</span>
+            </a>
+            <div class="view-switch" role="tablist">
+                <a href="/library.html" role="tab" class="active" aria-current="page">Grid</a>
+                <a href="/stack.html" role="tab">Stack</a>
+            </div>
+            <span class="topnav-brand">Claudio</span>
+        </nav>
+
+        <!-- Sticky mini-player: hydrates from localStorage if a song was
+             playing on the full Player, or activates when a card is clicked. -->
+        <aside class="mini-player" id="mini-player" aria-label="Now Playing" hidden>
+            <div class="mini-row">
+                <div class="mini-cover" id="mini-cover" aria-hidden="true"></div>
+                <div class="mini-meta">
+                    <div class="mini-title" id="mini-title">—</div>
+                    <div class="mini-artist" id="mini-artist">—</div>
+                </div>
+                <button class="mini-ctrl mini-play" id="mini-play" type="button" aria-label="播放/暂停">
+                    <svg viewBox="0 0 24 24" fill="currentColor" id="mini-play-icon">
+                        <path d="M7 4 L20 12 L7 20 Z"/>
+                    </svg>
+                </button>
+                <button class="mini-ctrl mini-next" id="mini-next" type="button" aria-label="下一首">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/>
+                        <line x1="19" y1="5" x2="19" y2="19"/>
+                    </svg>
+                </button>
+                <a class="mini-expand" href="/" title="回到 Player 全屏" aria-label="回到全屏播放器">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16">
+                        <polyline points="15 3 21 3 21 9"/>
+                        <polyline points="9 21 3 21 3 15"/>
+                        <line x1="21" y1="3" x2="14" y2="10"/>
+                        <line x1="3" y1="21" x2="10" y2="14"/>
+                    </svg>
+                </a>
+            </div>
+            <div class="mini-progress" id="mini-progress-track">
+                <div class="mini-progress-fill" id="mini-progress-fill"></div>
+            </div>
+        </aside>
+
+        <header class="header">
+            <div class="title-block">
+                <h1 class="title">Library</h1>
+                <span class="title-count" id="title-count">— loading</span>
+            </div>
+            <div class="controls">
+                <button class="control active" data-sort="recent">Recently Played</button>
+                <button class="control" data-sort="artist">Artist</button>
+                <button class="control" data-sort="title">Title</button>
+            </div>
+        </header>
+
+        <p class="hint hidden" id="hint">
+            <em>尚未播过任何歌</em> —— 这是从你的 Signature 池里取的预览
+        </p>
+
+        <div class="grid" id="grid" aria-live="polite"></div>
+
+    </div>
+
+    <script src="audio-state.js"></script>
+    <script src="library.js"></script>
+</body>
+</html>

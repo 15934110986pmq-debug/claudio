@@ -20,15 +20,19 @@ class ContextAggregator {
             fs.readJson(path.join(ROOT, 'user/playlists.json'), { throws: false }).catch(() => ({}))
         ]);
 
-        // Fragment 3: Environment injection (weather + calendar + now)
+        // Fragment 3: Environment injection (weather + calendar + now).
+        // Always render time in Asia/Taipei regardless of host TZ —
+        // the user lives in Taiwan, so the DJ should think in Taipei time.
+        const TZ = 'Asia/Taipei';
         const now = new Date();
         const [weather, events] = await Promise.all([
             getCurrentWeather().catch(() => '天气未知'),
             getTodayEvents().catch(() => ['日程未知'])
         ]);
         const env = {
-            now: now.toLocaleString('zh-CN', { hour12: false }),
-            weekday: ['周日','周一','周二','周三','周四','周五','周六'][now.getDay()],
+            now: now.toLocaleString('zh-CN', { hour12: false, timeZone: TZ }),
+            weekday: now.toLocaleDateString('zh-CN', { weekday: 'long', timeZone: TZ })
+                       .replace('星期', '周'),  // "星期一" → "周一" (project convention)
             weather,
             todayEvents: events,
             ...extras

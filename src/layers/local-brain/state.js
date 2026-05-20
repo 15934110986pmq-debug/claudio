@@ -25,8 +25,12 @@ class StateMemory {
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     song_id TEXT,
                     song_name TEXT,
-                    artist TEXT
+                    artist TEXT,
+                    cover_url TEXT
                 )`);
+                // Migrate older dbs that pre-date cover_url. SQLite throws
+                // "duplicate column name" if it already exists — we ignore.
+                this.db.run(`ALTER TABLE plays ADD COLUMN cover_url TEXT`, () => {});
                 this.db.run(`CREATE TABLE IF NOT EXISTS plan (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     date TEXT UNIQUE,
@@ -60,15 +64,23 @@ class StateMemory {
     async savePlay(song) {
         await this._ready;
         await this._run(
-            'INSERT INTO plays (song_id, song_name, artist) VALUES (?, ?, ?)',
-            [song.id || '', song.name, song.artist]
+            'INSERT INTO plays (song_id, song_name, artist, cover_url) VALUES (?, ?, ?, ?)',
+            [song.id || '', song.name, song.artist, song.coverUrl || '']
         );
     }
 
     async getRecentPlays(limit = 10) {
         await this._ready;
         return this._all(
-            'SELECT song_name, artist, timestamp FROM plays ORDER BY timestamp DESC LIMIT ?',
+            'SELECT song_id, song_name, artist, cover_url, timestamp FROM plays ORDER BY timestamp DESC LIMIT ?',
+            [limit]
+        );
+    }
+
+    async getAllPlays(limit = 500) {
+        await this._ready;
+        return this._all(
+            'SELECT song_id, song_name, artist, cover_url, timestamp FROM plays ORDER BY timestamp DESC LIMIT ?',
             [limit]
         );
     }

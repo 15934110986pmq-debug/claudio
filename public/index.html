@@ -1,52 +1,376 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Claudio - 个人 AI 电台</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0c0a09">
+    <title>Claudio</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Shared base; each view's stylesheet toggled via disabled. -->
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" id="css-player"  href="style.css">
+    <link rel="stylesheet" id="css-library" href="library.css" disabled>
+    <link rel="stylesheet" id="css-stack"   href="stack.css"   disabled>
 </head>
-
 <body>
-    <div class="player-container">
-        <div class="header">
-            <span class="status-dot online"></span>
-            <span class="status-text">Claudio 正在倾听...</span>
-        </div>
 
-        <div class="album-art">
-            <img id="cover-img" src="https://via.placeholder.com/300x300/1e1e1e/333333?text=Claudio" alt="Album Cover">
-        </div>
+    <!-- ─── Player view ──────────────────────────────────────────────────── -->
+    <div class="view view-player is-active" id="view-player">
 
-        <div class="track-info">
-            <h2 id="track-title">等待播放</h2>
-            <p id="track-artist">Claudio AI DJ</p>
-        </div>
+        <div class="bg-blob b1" aria-hidden="true"></div>
+        <div class="bg-blob b2" aria-hidden="true"></div>
+        <div class="bg-blob b3" aria-hidden="true"></div>
 
-        <div class="dj-subtitle-box">
-            <i class="fas fa-microphone-alt"></i>
-            <p id="dj-text">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</p>
-        </div>
+        <nav class="player-nav">
+            <a class="nav-btn" href="/library" aria-label="打开 Library">
+                <span class="nav-arrow">←</span>
+                <span>Library</span>
+            </a>
+            <div class="nav-center" id="status-text">Claudio 正在倾听…</div>
+            <a class="nav-btn" href="/stack" aria-label="打开 Stack">
+                <span>Stack</span>
+                <span class="nav-arrow" style="transform: scaleX(-1); display: inline-block;">←</span>
+            </a>
+        </nav>
 
-        <div class="progress-container">
-            <div class="progress-track">
-                <div class="progress-fill" id="progress"></div>
-            </div>
-            <div class="time-info">
-                <span id="current-time">0:00</span>
-                <span id="total-time">0:00</span>
-            </div>
-        </div>
+        <main class="player-stage">
+            <section class="art-side">
+                <div class="vinyl-stage">
+                    <div class="vinyl-wrapper">
+                        <div class="vinyl"><div class="vinyl-label"></div></div>
+                    </div>
+                    <div class="album-art" id="album-art">
+                        <img id="cover-img" alt=""
+                             src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><rect width='1' height='1' fill='%23000'/></svg>">
+                        <div class="album-art-label">Claudio</div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="controls">
-            <button class="btn-icon" id="prev-btn"><i class="fas fa-step-backward"></i></button>
-            <button class="btn-play" id="play-btn"><i class="fas fa-play"></i></button>
-            <button class="btn-icon" id="next-btn"><i class="fas fa-step-forward"></i></button>
+            <section class="info-side">
+                <div class="now-tag">
+                    On Air
+                    <span class="eq" id="eq" aria-hidden="true">
+                        <span class="eq-bar"></span>
+                        <span class="eq-bar"></span>
+                        <span class="eq-bar"></span>
+                        <span class="eq-bar"></span>
+                    </span>
+                </div>
+
+                <h1 class="track-title" id="track-title">等待播放</h1>
+
+                <div class="track-meta">
+                    <div class="artist" id="track-artist">Claudio AI DJ</div>
+                    <div class="album-name">from <em>your taste, today</em></div>
+                </div>
+
+                <div class="lyrics">
+                    <div class="lyrics-track" id="lyrics-track">
+                        <div class="lyric-line current" data-role="dj">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</div>
+                    </div>
+                </div>
+
+                <form class="chat-input" id="chat-form" autocomplete="off">
+                    <input
+                        type="text"
+                        id="chat-input"
+                        name="message"
+                        placeholder="Talk to Claudio…"
+                        aria-label="Say something to Claudio"
+                        autocomplete="off"
+                        maxlength="200">
+                    <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </form>
+
+                <div class="controls-block">
+                    <div class="progress">
+                        <span class="time" id="current-time">0:00</span>
+                        <div class="progress-bar" id="progress-bar">
+                            <div class="progress-fill" id="progress"></div>
+                        </div>
+                        <span class="time" id="total-time">0:00</span>
+                    </div>
+
+                    <div class="buttons">
+                        <button class="ctrl prev" id="prev-btn" title="上一首" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <polygon points="19 20 9 12 19 4 19 20" fill="currentColor"/>
+                                <line x1="5" y1="19" x2="5" y2="5"/>
+                            </svg>
+                        </button>
+                        <button class="play-btn" id="play-btn" title="播放/暂停" type="button">
+                            <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+                                <path d="M7 4 L20 12 L7 20 Z"/>
+                            </svg>
+                        </button>
+                        <button class="ctrl next" id="next-btn" title="换一首" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/>
+                                <line x1="19" y1="5" x2="19" y2="19"/>
+                            </svg>
+                        </button>
+
+                        <div class="secondary-actions">
+                            <button class="ctrl heart" id="heart" title="喜欢" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                </svg>
+                                <div class="heart-particles" aria-hidden="true">
+                                    <div class="heart-particle" style="--tx:-22px; --ty:-18px;"></div>
+                                    <div class="heart-particle" style="--tx: 22px; --ty:-18px;"></div>
+                                    <div class="heart-particle" style="--tx:-28px; --ty:  4px;"></div>
+                                    <div class="heart-particle" style="--tx: 28px; --ty:  4px;"></div>
+                                    <div class="heart-particle" style="--tx:-14px; --ty: 22px;"></div>
+                                    <div class="heart-particle" style="--tx: 14px; --ty: 22px;"></div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ─── Library view (Grid) ─────────────────────────────────────────── -->
+    <div class="view view-library" id="view-library">
+        <div class="library">
+
+            <nav class="topnav">
+                <a href="/" class="topnav-link" aria-label="返回播放器">
+                    <span class="topnav-arrow">←</span>
+                    <span class="topnav-text">Player</span>
+                </a>
+                <div class="view-switch" role="tablist">
+                    <a href="/library" role="tab" class="active" aria-current="page">Grid</a>
+                    <a href="/stack" role="tab">Stack</a>
+                </div>
+                <span class="topnav-brand">Claudio</span>
+            </nav>
+
+            <aside class="mini-player" id="mini-player" aria-label="Now Playing" hidden>
+                <div class="mini-row">
+                    <div class="mini-cover" id="mini-cover" aria-hidden="true"></div>
+                    <div class="mini-meta">
+                        <div class="mini-title" id="mini-title">—</div>
+                        <div class="mini-artist" id="mini-artist">—</div>
+                    </div>
+                    <button class="mini-ctrl mini-play" id="mini-play" type="button" aria-label="播放/暂停">
+                        <svg viewBox="0 0 24 24" fill="currentColor" id="mini-play-icon">
+                            <path d="M7 4 L20 12 L7 20 Z"/>
+                        </svg>
+                    </button>
+                    <button class="mini-ctrl mini-next" id="mini-next" type="button" aria-label="下一首">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/>
+                            <line x1="19" y1="5" x2="19" y2="19"/>
+                        </svg>
+                    </button>
+                    <a class="mini-expand" href="/" title="回到 Player 全屏" aria-label="回到全屏播放器">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16">
+                            <polyline points="15 3 21 3 21 9"/>
+                            <polyline points="9 21 3 21 3 15"/>
+                            <line x1="21" y1="3" x2="14" y2="10"/>
+                            <line x1="3" y1="21" x2="10" y2="14"/>
+                        </svg>
+                    </a>
+                </div>
+                <div class="mini-progress" id="mini-progress-track">
+                    <div class="mini-progress-fill" id="mini-progress-fill"></div>
+                </div>
+            </aside>
+
+            <header class="header">
+                <div class="title-block">
+                    <h1 class="title">Library</h1>
+                    <span class="title-count" id="title-count">— loading</span>
+                </div>
+                <div class="controls">
+                    <button class="control active" data-sort="recent">Recently Played</button>
+                    <button class="control" data-sort="artist">Artist</button>
+                    <button class="control" data-sort="title">Title</button>
+                </div>
+            </header>
+
+            <p class="hint hidden" id="hint">
+                <em>尚未播过任何歌</em> —— 这是从你的 Signature 池里取的预览
+            </p>
+
+            <div class="grid" id="grid" aria-live="polite"></div>
         </div>
     </div>
+
+    <!-- ─── Library view (Stack) ────────────────────────────────────────── -->
+    <div class="view view-stack" id="view-stack">
+
+        <nav class="topnav">
+            <a class="topnav-link" href="/" aria-label="返回播放器">
+                <span class="topnav-arrow">←</span>
+                <span class="topnav-text">Player</span>
+            </a>
+            <div class="view-switch" role="tablist">
+                <a href="/library" role="tab">Grid</a>
+                <a href="/stack" role="tab" class="active" aria-current="page">Stack</a>
+            </div>
+            <span class="topnav-brand">Claudio</span>
+        </nav>
+
+        <header class="page-header">
+            <h1 class="page-title">Personal Library — <em>your stack</em></h1>
+            <div class="page-meta" id="page-meta">— loading</div>
+        </header>
+        <p class="page-sub">The last records you spent time with.</p>
+
+        <main class="library" id="library">
+            <div class="stack-3d" id="stack3d">
+                <div class="stack" id="stack" aria-live="polite"></div>
+            </div>
+        </main>
+
+        <div class="hint">CLICK <kbd>ANY</kbd> RECORD TO OPEN · <kbd>▶ LISTEN</kbd> TO ENTER PLAYER · MOVE MOUSE TO TILT</div>
+
+        <button class="now-chip" id="now-chip" hidden type="button" aria-label="Open full player">
+            <span class="now-chip-cover" id="now-chip-cover" aria-hidden="true"></span>
+            <span class="now-chip-meta">
+                <span class="now-chip-title" id="now-chip-title">—</span>
+                <span class="now-chip-artist" id="now-chip-artist">—</span>
+            </span>
+            <span class="now-chip-play" id="now-chip-play" aria-hidden="true">▶</span>
+        </button>
+
+        <div class="player" id="player">
+            <div class="player-blob b1" aria-hidden="true"></div>
+            <div class="player-blob b2" aria-hidden="true"></div>
+
+            <nav class="player-nav">
+                <button class="player-back" id="player-close" type="button">
+                    <span class="arrow">←</span> Back to library
+                </button>
+                <div class="more-menu">
+                    <button class="more-btn" id="more-btn" type="button"
+                            aria-label="More" aria-haspopup="menu" aria-expanded="false">•••</button>
+                    <div class="more-dropdown" id="more-dropdown" role="menu" hidden>
+                        <button class="more-item" data-action="login" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">⌥</span>
+                            <span class="more-text">Sign in</span>
+                        </button>
+                        <div class="more-divider" role="separator"></div>
+                        <button class="more-item more-item--ghost" data-action="settings" role="menuitem" type="button" disabled>
+                            <span class="more-icon" aria-hidden="true">⚙</span>
+                            <span class="more-text">Settings</span>
+                            <span class="more-tag">soon</span>
+                        </button>
+                        <button class="more-item more-item--ghost" data-action="about" role="menuitem" type="button" disabled>
+                            <span class="more-icon" aria-hidden="true">ⓘ</span>
+                            <span class="more-text">About Claudio</span>
+                            <span class="more-tag">soon</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="player-stage">
+                <div class="cover-slot" id="cover-slot"></div>
+
+                <div class="player-info">
+                    <div class="now-tag">
+                        On Air
+                        <span class="eq" id="player-eq" aria-hidden="true">
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                        </span>
+                    </div>
+
+                    <h1 class="player-title" id="player-title">—</h1>
+
+                    <div>
+                        <div class="player-artist" id="player-artist">—</div>
+                        <div class="player-album" id="player-album">—</div>
+                    </div>
+
+                    <div class="player-lyrics" id="player-lyrics">Tuning your channel…</div>
+
+                    <div class="player-progress">
+                        <span class="player-time" id="player-current">0:00</span>
+                        <div class="player-bar" id="player-bar">
+                            <div class="player-fill" id="player-fill"></div>
+                        </div>
+                        <span class="player-time" id="player-total">0:00</span>
+                    </div>
+
+                    <div class="player-controls">
+                        <button class="pctrl" id="player-prev" type="button" aria-label="Previous">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="19 20 9 12 19 4"/>
+                                <rect x="5" y="5" width="2" height="14" rx="0.5"/>
+                            </svg>
+                        </button>
+                        <button class="pctrl play-big" id="player-play" type="button" aria-label="Play/Pause">
+                            <svg viewBox="0 0 24 24" fill="currentColor" id="player-play-icon">
+                                <path d="M7 4 L20 12 L7 20 Z"/>
+                            </svg>
+                        </button>
+                        <button class="pctrl" id="player-next" type="button" aria-label="Next">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 4 15 12 5 20"/>
+                                <rect x="17" y="5" width="2" height="14" rx="0.5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ─── Shared singletons (live outside any view) ────────────────────── -->
+    <audio id="audio-music" preload="auto"></audio>
+    <audio id="audio-tts"></audio>
+
+    <!-- Sign-in modal — available to any view's ••• menu -->
+    <div class="auth-modal" id="auth-modal" hidden role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <div class="auth-backdrop" id="auth-backdrop" aria-hidden="true"></div>
+        <div class="auth-card" role="document">
+            <button class="auth-close" id="auth-close" type="button" aria-label="Close">✕</button>
+            <div class="auth-overline">CLAUDIO · ACCOUNT</div>
+            <h2 class="auth-title" id="auth-title">Welcome back.</h2>
+            <p class="auth-sub">Sign in to sync your taste across devices.</p>
+            <form class="auth-form" id="auth-form" novalidate>
+                <label class="auth-field">
+                    <span class="auth-label">Email</span>
+                    <input type="email" name="email" id="auth-email" required
+                           autocomplete="email" placeholder="you@example.com">
+                </label>
+                <label class="auth-field">
+                    <span class="auth-label">Password</span>
+                    <input type="password" name="password" id="auth-password" required
+                           autocomplete="current-password" placeholder="••••••••">
+                </label>
+                <div class="auth-error" id="auth-error" hidden role="alert"></div>
+                <button class="auth-submit" id="auth-submit" type="submit">Sign in</button>
+                <div class="auth-foot">
+                    <a href="#" class="auth-link" data-action="forgot">Forgot password?</a>
+                    <span class="auth-sep">·</span>
+                    <a href="#" class="auth-link" data-action="signup">Create account</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="audio-state.js"></script>
+    <script src="view-player.js"></script>
+    <script src="view-library.js"></script>
+    <script src="view-stack.js"></script>
     <script src="app.js"></script>
 </body>
-
 </html>

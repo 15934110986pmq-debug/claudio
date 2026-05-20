@@ -1,4 +1,7 @@
 {
+  "env": {
+    "NODE_ENV": "development"
+  },
   "permissions": {
     "allow": [
       "Bash(npm install)",
@@ -58,7 +61,5 @@
       "Bash(git reset --hard:*)"
     ]
   },
-  "env": {
-    "NODE_ENV": "development"
-  }
+  "enabledPlugins": {}
 }

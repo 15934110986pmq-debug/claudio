@@ -1,0 +1,57 @@
+/* base.css — shared layer for the SPA shell.
+   Each view's own stylesheet (style.css / library.css / stack.css) is enabled
+   one at a time via the `disabled` property on its <link> tag. */
+
+@view-transition { navigation: auto; }
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html { height: 100%; }
+
+body {
+    margin: 0;
+    min-height: 100%;
+    background: #0a0a0a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11", "tnum";
+    overflow: hidden;
+}
+
+/* View containers. position:fixed so each view fills viewport regardless of
+   the others' presence in DOM. .is-active controls visibility + interaction. */
+.view {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+.view.is-active {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 2;
+}
+/* Player view is full-screen with no scroll */
+.view-player.is-active { overflow: hidden; }
+
+/* When a view becomes the active route, fire its own background — these are
+   safety colors in case the view-specific stylesheet is briefly inactive
+   during the transition window. */
+.view-player    { background: #0c0a09; }
+.view-library   { background: #0c0a09; }
+.view-stack     { background: #ebe4d4; }
+
+/* Smooth crossfade via View Transitions API (Chrome 126+) */
+::view-transition-old(root) { animation: 0.25s ease both vt-fade-out; }
+::view-transition-new(root) { animation: 0.35s ease both vt-fade-in;  }
+@keyframes vt-fade-out { to   { opacity: 0; } }
+@keyframes vt-fade-in  { from { opacity: 0; } }

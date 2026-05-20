@@ -5,7 +5,15 @@ const { spawn } = require('child_process');
 class ClaudeBrain {
     async generateResponse(prompt) {
         return new Promise((resolve, reject) => {
-            const proc = spawn('claude', ['--print', '--output', 'json', '--no-ansi'], {
+            // NB: current Claude Code CLI uses --output-format (single flag),
+            // not the older `--output json`. Drop --no-ansi: not exposed in
+            // current help and JSON output has no ANSI to begin with.
+            // --model haiku: ~100x cheaper than Opus 4.7 (~$0.005 vs $0.50 per pick).
+            const proc = spawn('claude', [
+                '--print',
+                '--output-format', 'json',
+                '--model', 'claude-haiku-4-5-20251001'
+            ], {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: { ...process.env }
             });
