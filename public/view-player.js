@@ -7,7 +7,11 @@
     let root, titleEl, artistEl, coverImg, albumArt, lyricsTrack,
         playBtn, playIcon, prevBtn, nextBtn, heart, statusText,
         progressBar, currentTimeEl, totalTimeEl, eqBars, artSide,
-        chatForm, chatInput, chatSend;
+        chatForm, chatInput, chatSend,
+        volumeEl, volumeBtn, volumeSlider,
+        noveltyEl, noveltySlider,
+        reasonEl, reasonTextEl,
+        composingEl, composingTextEl;
 
     const playSVG  = `<path d="M7 4 L20 12 L7 20 Z"/>`;
     const pauseSVG = `<rect x="6" y="5" width="4" height="14" rx="0.5"/><rect x="14" y="5" width="4" height="14" rx="0.5"/>`;
@@ -38,6 +42,15 @@
         chatForm      = root.querySelector('#chat-form');
         chatInput     = root.querySelector('#chat-input');
         chatSend      = root.querySelector('#chat-send');
+        volumeEl      = root.querySelector('#volume');
+        volumeBtn     = root.querySelector('#volume-btn');
+        volumeSlider  = root.querySelector('#volume-slider');
+        noveltyEl     = root.querySelector('#novelty');
+        noveltySlider = root.querySelector('#novelty-slider');
+        reasonEl      = root.querySelector('#track-reason');
+        reasonTextEl  = root.querySelector('#track-reason-text');
+        composingEl     = root.querySelector('#dj-composing');
+        composingTextEl = root.querySelector('#dj-composing-text');
 
         document.body.classList.add('paused');
         applyLetterStagger(titleEl, titleEl.textContent);
@@ -45,19 +58,64 @@
         // Listen to shared state events
         ctx.bus.addEventListener('state:track',    (e) => renderTrack(e.detail));
         ctx.bus.addEventListener('state:dj',       (e) => onDjEvent(e.detail));
+        ctx.bus.addEventListener('state:reason',   (e) => renderReason(e.detail));
         ctx.bus.addEventListener('state:play',     (e) => setPlayingUI(e.detail));
         ctx.bus.addEventListener('state:progress', (e) => updateProgress(e.detail));
         ctx.bus.addEventListener('state:status',   (e) => setStatus(e.detail));
+        ctx.bus.addEventListener('state:love',     (e) => setHeartUI(e.detail));
+
+        // Streaming composing indicator — SDK path only; CLI path never fires these.
+        let composeBuffer = '';
+        ctx.bus.addEventListener('state:stream-delta', (e) => {
+            composeBuffer += e.detail || '';
+            if (composingEl && composingTextEl) {
+                composingEl.hidden = false;
+                // Only show the first 240 chars of the streamed JSON — most likely
+                // the user-facing `say` field arrives early; we don't need to render
+                // the rest of the schema. Strip JSON syntactic characters for readability.
+                const display = composeBuffer
+                    .replace(/^\s*\{/, '')
+                    .replace(/"say"\s*:\s*"/, '"')
+                    .slice(0, 240);
+                composingTextEl.textContent = display;
+            }
+        });
+        ctx.bus.addEventListener('state:stream-end', () => {
+            composeBuffer = '';
+            if (composingEl) {
+                composingEl.hidden = true;
+                if (composingTextEl) composingTextEl.textContent = '';
+            }
+        });
 
         // Buttons → shared actions
         playBtn.addEventListener('click', () => {
             if (ctx.state.isPlaying) ctx.actions.togglePlayPause();
             else ctx.actions.play();
         });
-        nextBtn.addEventListener('click', () => ctx.actions.next());
-        prevBtn.addEventListener('click', () => {
-            setStatus('暂时无法返回上一首');
+        nextBtn.addEventListener('click', () => {
+            const audio = ctx.audio;
+            const track = ctx.state.track;
+            const pct = (audio?.duration && audio.duration > 0)
+                ? Math.max(0, Math.min(1, audio.currentTime / audio.duration))
+                : null;
+            if (track?.songId || track?.name) {
+                // Fire-and-forget — don't block the skip on the POST
+                fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        song_id:      track.songId,
+                        song_name:    track.name,
+                        artist:       track.artist,
+                        type:         'skip',
+                        position_pct: pct
+                    })
+                }).catch(err => console.error('[feedback skip]', err.message));
+            }
+            ctx.actions.next();
         });
+        prevBtn.addEventListener('click', () => ctx.actions.prev());
 
         // Seek
         root.querySelector('#progress-bar')?.addEventListener('click', (e) => {
@@ -65,14 +123,61 @@
             ctx.actions.seek((e.clientX - rect.left) / rect.width);
         });
 
-        // Heart (visual only — wire to /api/feedback later)
-        heart?.addEventListener('click', () => {
-            heart.classList.toggle('active');
-            const svg = heart.querySelector('svg');
-            svg.setAttribute('fill', heart.classList.contains('active') ? 'currentColor' : 'none');
+        // Volume — slider sets <audio>.volume directly (app.js applies it across both
+        // music and tts elements). Click the icon to mute/unmute; we remember the
+        // last non-zero level so unmute restores to where the user left it.
+        let lastVolume = ctx.actions.getVolume();
+        if (lastVolume === 0) lastVolume = 1;
+        syncVolumeUI(ctx.actions.getVolume());
+
+        volumeSlider?.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            if (v > 0) lastVolume = v;
+            ctx.actions.setVolume(v);
+            syncVolumeUI(v);
+        });
+        volumeBtn?.addEventListener('click', () => {
+            const cur = ctx.actions.getVolume();
+            const next = cur > 0 ? 0 : lastVolume;
+            ctx.actions.setVolume(next);
+            syncVolumeUI(next);
+        });
+        ctx.bus.addEventListener('state:volume', (e) => syncVolumeUI(e.detail));
+
+        // Novelty slider — persists via getPref/setPref in App.actions
+        noveltySlider?.addEventListener('input', (e) => {
+            ctx.actions.setNovelty(e.target.value);
+            syncNoveltyUI(parseInt(e.target.value, 10));
+        });
+        syncNoveltyUI(ctx.actions.getNovelty());
+        if (noveltySlider) noveltySlider.value = String(ctx.actions.getNovelty());
+
+        // Heart — toggles love/unlove via /api/feedback
+        heart?.addEventListener('click', async () => {
+            const newState = !heart.classList.contains('active');
+            setHeartUI(newState);  // optimistic
             heart.classList.remove('popping');
             void heart.offsetWidth;
             heart.classList.add('popping');
+            const track = ctx.state.track;
+            if (!track?.songId && !track?.name) return;
+            try {
+                await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        song_id:   track.songId,
+                        song_name: track.name,
+                        artist:    track.artist,
+                        type:      newState ? 'love' : 'unlove'
+                    })
+                });
+                ctx.state.isLoved = newState;
+            } catch (err) {
+                // Roll back optimistic toggle on failure
+                setHeartUI(!newState);
+                console.error('[feedback love]', err.message);
+            }
         });
 
         // EQ animation
@@ -115,9 +220,23 @@
         // If track already exists (restored from localStorage), render it now
         if (ctx.state.track) {
             renderTrack(ctx.state.track);
-            if (ctx.state.djSay) appendChatLine(ctx.state.djSay, 'dj');
+            if (ctx.state.djSay)    appendChatLine(ctx.state.djSay, 'dj');
+            if (ctx.state.djReason) renderReason(ctx.state.djReason);
             setPlayingUI(ctx.state.isPlaying);
         }
+
+        // Wire the ••• menu in player nav — Sign in opens the shared auth modal
+        // that view-stack.js has already bound (close button, submit handler).
+        bindMoreMenu();
+
+        // Locale toggle from ••• menu (works for both player and stack menus)
+        document.body.addEventListener('click', (e) => {
+            const item = e.target.closest('.more-item[data-action="lang"]');
+            if (item) {
+                const next = window.ClaudioI18n?.locale === 'en' ? 'zh' : 'en';
+                window.ClaudioI18n?.setLocale(next);
+            }
+        });
 
         // Chat form — POST /api/chat with the user's message; DJ reply arrives
         // either in the HTTP response (fast) or via WS state:dj (slower, full chain).
@@ -132,13 +251,13 @@
             chatSend.classList.add('is-loading');
 
             appendChatLine(text, 'user');
-            setStatus('Claudio is thinking…');
+            setStatus(window.ClaudioI18n?.t('player.status.thinking') || 'Thinking…');
 
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
+                    body: JSON.stringify({ message: text, novelty: ctx.state.novelty })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -159,6 +278,75 @@
 
     function show() { /* called by app.js when view becomes active */ }
 
+    // ••• dropdown menu in player nav. The auth modal's submit/close handlers
+    // are already bound globally by view-stack.js (single shared modal), so
+    // here we just toggle the dropdown and unhide the modal on Sign in.
+    function bindMoreMenu() {
+        const moreBtn      = root.querySelector('#player-more-btn');
+        const moreDropdown = root.querySelector('#player-more-dropdown');
+        const authModal    = document.getElementById('auth-modal');
+        const authEmail    = document.getElementById('auth-email');
+        if (!moreBtn || !moreDropdown) return;
+
+        const setOpen = (open) => {
+            moreDropdown.hidden = !open;
+            moreBtn.setAttribute('aria-expanded', String(open));
+        };
+
+        moreBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setOpen(moreDropdown.hidden);
+        });
+
+        // Click outside the menu closes it
+        document.addEventListener('click', (e) => {
+            if (moreDropdown.hidden) return;
+            if (e.target.closest('#player-more-dropdown')) return;
+            if (e.target.closest('#player-more-btn')) return;
+            setOpen(false);
+        });
+
+        // Auth-aware menu items: Sign in shows when anon, Sign out shows when authed.
+        async function updateAuthMenuState() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                const isAuthed = !!data.user;
+                document.querySelectorAll('.more-item[data-action="login"]').forEach(el => { el.hidden = isAuthed; });
+                document.querySelectorAll('.more-item[data-action="signout"]').forEach(el => { el.hidden = !isAuthed; });
+            } catch { /* ignore */ }
+        }
+        updateAuthMenuState();
+
+        // Menu item actions
+        moreDropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.more-item[data-action]:not(:disabled)');
+            if (item) {
+                setOpen(false);
+                if (item.dataset.action === 'login' && authModal) {
+                    authModal.hidden = false;
+                    setTimeout(() => authEmail?.focus(), 50);
+                }
+                if (item.dataset.action === 'signout') {
+                    (async () => {
+                        try {
+                            await fetch('/api/auth/signout', { method: 'POST' });
+                        } catch { /* ignore */ }
+                        location.reload();
+                    })();
+                }
+                return;
+            }
+            // <a> menu items (Stack view) — let SPA router handle, just close menu
+            if (e.target.closest('a.more-item')) setOpen(false);
+        });
+
+        // Esc closes menu (modal Esc is handled by view-stack.js's global listener)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !moreDropdown.hidden) setOpen(false);
+        });
+    }
+
     function renderTrack(track) {
         if (!track) return;
         applyLetterStagger(titleEl, track.name || '—');
@@ -167,6 +355,13 @@
             coverImg.onload  = () => albumArt.classList.add('has-cover');
             coverImg.onerror = () => albumArt.classList.remove('has-cover');
             coverImg.src = track.coverUrl;
+        }
+        // Hide stale reason until the new one arrives (state:reason fires
+        // separately and will re-render). Prevents the old explanation from
+        // sitting under a new cover for the few hundred ms in between.
+        if (reasonEl && !ctx.state.djReason) {
+            reasonEl.hidden = true;
+            reasonEl.classList.remove('is-visible');
         }
     }
 
@@ -219,6 +414,51 @@
 
     function setStatus(msg) {
         if (statusText) statusText.textContent = msg;
+    }
+
+    function setHeartUI(active) {
+        if (!heart) return;
+        heart.classList.toggle('active', !!active);
+        const svg = heart.querySelector('svg');
+        if (svg) svg.setAttribute('fill', active ? 'currentColor' : 'none');
+    }
+
+    // Render the LLM's "why this song" explanation. Hidden when empty; soft
+    // fade-in on change so it doesn't compete with the track title's animation.
+    function renderReason(text) {
+        if (!reasonEl || !reasonTextEl) return;
+        const trimmed = (text || '').trim();
+        if (!trimmed) {
+            reasonEl.hidden = true;
+            reasonEl.classList.remove('is-visible');
+            reasonTextEl.textContent = '';
+            return;
+        }
+        reasonTextEl.textContent = trimmed;
+        reasonEl.hidden = false;
+        // Restart the fade-in: removing + re-adding via a frame triggers
+        // the CSS transition cleanly even when the same text is reapplied.
+        reasonEl.classList.remove('is-visible');
+        void reasonEl.offsetWidth;
+        reasonEl.classList.add('is-visible');
+    }
+
+    function syncNoveltyUI(n) {
+        if (!noveltyEl) return;
+        noveltyEl.style.setProperty('--nov', `${n}%`);
+        noveltyEl.dataset.level = n < 31 ? 'safe' : n > 70 ? 'adventurous' : 'balanced';
+    }
+
+    function syncVolumeUI(v) {
+        if (!volumeEl) return;
+        if (volumeSlider && parseFloat(volumeSlider.value) !== v) {
+            volumeSlider.value = String(v);
+        }
+        if (volumeSlider) {
+            volumeSlider.style.setProperty('--vol', `${(v * 100).toFixed(1)}%`);
+        }
+        const level = v === 0 ? 'mute' : v < 0.33 ? 'low' : v < 0.7 ? 'mid' : 'high';
+        volumeEl.dataset.level = level;
     }
 
     function fmt(s) {

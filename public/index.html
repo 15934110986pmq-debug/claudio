@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon.svg">
+
     <!-- Shared base; each view's stylesheet toggled via disabled. -->
     <link rel="stylesheet" href="base.css">
     <link rel="stylesheet" id="css-player"  href="style.css">
@@ -28,13 +31,63 @@
         <nav class="player-nav">
             <a class="nav-btn" href="/library" aria-label="打开 Library">
                 <span class="nav-arrow">←</span>
-                <span>Library</span>
+                <span data-i18n="nav.library">Library</span>
             </a>
-            <div class="nav-center" id="status-text">Claudio 正在倾听…</div>
-            <a class="nav-btn" href="/stack" aria-label="打开 Stack">
-                <span>Stack</span>
-                <span class="nav-arrow" style="transform: scaleX(-1); display: inline-block;">←</span>
-            </a>
+            <div class="nav-center" id="status-text" data-i18n="player.status.connecting">Claudio 正在倾听…</div>
+            <div class="more-menu">
+                <button class="nav-btn more-btn" id="player-more-btn" type="button"
+                        aria-label="More" aria-haspopup="menu" aria-expanded="false">•••</button>
+                <div class="more-dropdown" id="player-more-dropdown" role="menu" hidden>
+                    <a class="more-item" href="/stack" role="menuitem">
+                        <span class="more-icon" aria-hidden="true">▤</span>
+                        <span class="more-text">Stack view</span>
+                    </a>
+                    <div class="more-divider" role="separator"></div>
+                    <button class="more-item" data-action="taste" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">♪</span>
+                        <span class="more-text" data-i18n="nav.taste">Edit my taste</span>
+                    </button>
+                    <button class="more-item" data-action="import" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">⇪</span>
+                        <span class="more-text" data-i18n="nav.import">Import my taste…</span>
+                    </button>
+                    <button class="more-item" data-action="persona" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">♫</span>
+                        <span class="more-text" data-i18n="nav.persona">Pick DJ persona</span>
+                    </button>
+                    <button class="more-item" data-action="share-taste" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">⤴</span>
+                        <span class="more-text" data-i18n="nav.share">Share my taste</span>
+                    </button>
+                    <button class="more-item" data-action="notifications" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">🔔</span>
+                        <span class="more-text" data-i18n="nav.notifications">Enable notifications</span>
+                    </button>
+                    <button class="more-item" data-action="lang" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">A</span>
+                        <span class="more-text" data-i18n="nav.lang">English</span>
+                    </button>
+                    <div class="more-divider" role="separator"></div>
+                    <button class="more-item more-item--ghost" data-action="settings" role="menuitem" type="button" disabled>
+                        <span class="more-icon" aria-hidden="true">⚙</span>
+                        <span class="more-text" data-i18n="nav.settings">Settings</span>
+                        <span class="more-tag" data-i18n="nav.soon">soon</span>
+                    </button>
+                    <a class="more-item" href="/about" role="menuitem" target="_blank" rel="noopener">
+                        <span class="more-icon" aria-hidden="true">ⓘ</span>
+                        <span class="more-text" data-i18n="nav.about">About Claudio</span>
+                    </a>
+                    <div class="more-divider" role="separator"></div>
+                    <button class="more-item" data-action="login" role="menuitem" type="button">
+                        <span class="more-icon" aria-hidden="true">⌥</span>
+                        <span class="more-text" data-i18n="nav.signin">Sign in</span>
+                    </button>
+                    <button class="more-item" data-action="signout" role="menuitem" type="button" hidden>
+                        <span class="more-icon" aria-hidden="true">⇥</span>
+                        <span class="more-text" data-i18n="nav.signout">Sign out</span>
+                    </button>
+                </div>
+            </div>
         </nav>
 
         <main class="player-stage">
@@ -53,7 +106,7 @@
 
             <section class="info-side">
                 <div class="now-tag">
-                    On Air
+                    <span data-i18n="player.now.onair">On Air</span>
                     <span class="eq" id="eq" aria-hidden="true">
                         <span class="eq-bar"></span>
                         <span class="eq-bar"></span>
@@ -62,16 +115,24 @@
                     </span>
                 </div>
 
-                <h1 class="track-title" id="track-title">等待播放</h1>
+                <h1 class="track-title" id="track-title" data-i18n="player.title.waiting">等待播放</h1>
 
                 <div class="track-meta">
-                    <div class="artist" id="track-artist">Claudio AI DJ</div>
+                    <div class="artist" id="track-artist" data-i18n="player.artist.default">Claudio AI DJ</div>
                     <div class="album-name">from <em>your taste, today</em></div>
+                    <div class="track-reason" id="track-reason" hidden>
+                        <span class="track-reason-label" aria-hidden="true" data-i18n="player.reason.label">why</span> ·
+                        <span class="track-reason-text" id="track-reason-text"></span>
+                    </div>
                 </div>
 
                 <div class="lyrics">
                     <div class="lyrics-track" id="lyrics-track">
-                        <div class="lyric-line current" data-role="dj">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</div>
+                        <div class="lyric-line current" data-role="dj" data-i18n="player.dj.welcome">"你好，我是你的个人 AI 电台。准备好听点什么了吗？"</div>
+                    </div>
+                    <div class="dj-composing" id="dj-composing" hidden aria-live="polite">
+                        <span class="dj-composing-text" id="dj-composing-text"></span>
+                        <span class="dj-composing-cursor" aria-hidden="true"></span>
                     </div>
                 </div>
 
@@ -82,6 +143,8 @@
                         name="message"
                         placeholder="Talk to Claudio…"
                         aria-label="Say something to Claudio"
+                        data-i18n-placeholder="player.chat.placeholder"
+                        data-i18n-aria="player.chat.aria"
                         autocomplete="off"
                         maxlength="200">
                     <button class="chat-send" id="chat-send" type="submit" aria-label="Send">
@@ -99,6 +162,14 @@
                             <div class="progress-fill" id="progress"></div>
                         </div>
                         <span class="time" id="total-time">0:00</span>
+                    </div>
+
+                    <div class="novelty" id="novelty" aria-label="Novelty preference">
+                        <span class="novelty-label novelty-label--left" aria-hidden="true" data-i18n="novelty.safe">SAFE</span>
+                        <input class="novelty-slider" id="novelty-slider"
+                               type="range" min="0" max="100" step="1" value="50"
+                               aria-label="Adventurousness — 0 safe, 100 adventurous">
+                        <span class="novelty-label novelty-label--right" aria-hidden="true" data-i18n="novelty.adventurous">ADVENTUROUS</span>
                     </div>
 
                     <div class="buttons">
@@ -121,6 +192,24 @@
                         </button>
 
                         <div class="secondary-actions">
+                            <div class="volume" id="volume">
+                                <button class="ctrl volume-btn" id="volume-btn" type="button"
+                                        title="静音 / 取消静音" aria-label="Mute toggle">
+                                    <svg class="volume-icon" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="1.8"
+                                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <polygon points="3 10 7 10 12 5 12 19 7 14 3 14" fill="currentColor" stroke="none"/>
+                                        <path class="volume-wave volume-wave--low"
+                                              d="M15.5 9.5 a4 4 0 0 1 0 5"/>
+                                        <path class="volume-wave volume-wave--high"
+                                              d="M18.5 7 a8 8 0 0 1 0 10"/>
+                                        <line class="volume-mute" x1="3" y1="3" x2="21" y2="21"/>
+                                    </svg>
+                                </button>
+                                <input class="volume-slider" id="volume-slider"
+                                       type="range" min="0" max="1" step="0.01" value="1"
+                                       aria-label="音量">
+                            </div>
                             <button class="ctrl heart" id="heart" title="喜欢" type="button">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20">
                                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -259,20 +348,53 @@
                     <button class="more-btn" id="more-btn" type="button"
                             aria-label="More" aria-haspopup="menu" aria-expanded="false">•••</button>
                     <div class="more-dropdown" id="more-dropdown" role="menu" hidden>
-                        <button class="more-item" data-action="login" role="menuitem" type="button">
-                            <span class="more-icon" aria-hidden="true">⌥</span>
-                            <span class="more-text">Sign in</span>
+                        <a class="more-item" href="/stack" role="menuitem">
+                            <span class="more-icon" aria-hidden="true">▤</span>
+                            <span class="more-text">Stack view</span>
+                        </a>
+                        <div class="more-divider" role="separator"></div>
+                        <button class="more-item" data-action="taste" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">♪</span>
+                            <span class="more-text" data-i18n="nav.taste">Edit my taste</span>
+                        </button>
+                        <button class="more-item" data-action="import" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">⇪</span>
+                            <span class="more-text" data-i18n="nav.import">Import my taste…</span>
+                        </button>
+                        <button class="more-item" data-action="persona" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">♫</span>
+                            <span class="more-text" data-i18n="nav.persona">Pick DJ persona</span>
+                        </button>
+                        <button class="more-item" data-action="share-taste" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">⤴</span>
+                            <span class="more-text" data-i18n="nav.share">Share my taste</span>
+                        </button>
+                        <button class="more-item" data-action="notifications" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">🔔</span>
+                            <span class="more-text" data-i18n="nav.notifications">Enable notifications</span>
+                        </button>
+                        <button class="more-item" data-action="lang" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">A</span>
+                            <span class="more-text" data-i18n="nav.lang">English</span>
                         </button>
                         <div class="more-divider" role="separator"></div>
                         <button class="more-item more-item--ghost" data-action="settings" role="menuitem" type="button" disabled>
                             <span class="more-icon" aria-hidden="true">⚙</span>
-                            <span class="more-text">Settings</span>
-                            <span class="more-tag">soon</span>
+                            <span class="more-text" data-i18n="nav.settings">Settings</span>
+                            <span class="more-tag" data-i18n="nav.soon">soon</span>
                         </button>
-                        <button class="more-item more-item--ghost" data-action="about" role="menuitem" type="button" disabled>
+                        <a class="more-item" href="/about" role="menuitem" target="_blank" rel="noopener">
                             <span class="more-icon" aria-hidden="true">ⓘ</span>
-                            <span class="more-text">About Claudio</span>
-                            <span class="more-tag">soon</span>
+                            <span class="more-text" data-i18n="nav.about">About Claudio</span>
+                        </a>
+                        <div class="more-divider" role="separator"></div>
+                        <button class="more-item" data-action="login" role="menuitem" type="button">
+                            <span class="more-icon" aria-hidden="true">⌥</span>
+                            <span class="more-text" data-i18n="nav.signin">Sign in</span>
+                        </button>
+                        <button class="more-item" data-action="signout" role="menuitem" type="button" hidden>
+                            <span class="more-icon" aria-hidden="true">⇥</span>
+                            <span class="more-text" data-i18n="nav.signout">Sign out</span>
                         </button>
                     </div>
                 </div>
@@ -351,26 +473,183 @@
                     <input type="email" name="email" id="auth-email" required
                            autocomplete="email" placeholder="you@example.com">
                 </label>
-                <label class="auth-field">
-                    <span class="auth-label">Password</span>
-                    <input type="password" name="password" id="auth-password" required
-                           autocomplete="current-password" placeholder="••••••••">
-                </label>
                 <div class="auth-error" id="auth-error" hidden role="alert"></div>
-                <button class="auth-submit" id="auth-submit" type="submit">Sign in</button>
+                <div class="auth-success" id="auth-success" hidden role="status"></div>
+                <button class="auth-submit" id="auth-submit" type="submit">Send sign-in link</button>
                 <div class="auth-foot">
-                    <a href="#" class="auth-link" data-action="forgot">Forgot password?</a>
-                    <span class="auth-sep">·</span>
-                    <a href="#" class="auth-link" data-action="signup">Create account</a>
+                    <span class="auth-hint">We'll email you a one-tap link. No password.</span>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Onboarding wizard modal — auto-opens for new authenticated users -->
+    <div class="onboarding-modal" id="onboarding-modal" hidden role="dialog" aria-modal="true" aria-labelledby="onb-title">
+      <div class="onboarding-backdrop" id="onboarding-backdrop" aria-hidden="true"></div>
+      <div class="onboarding-card" role="document">
+        <button class="onboarding-close" id="onboarding-close" type="button" aria-label="Close" hidden>✕</button>
+        <div class="onboarding-overline">CLAUDIO · LET'S TUNE YOUR CHANNEL</div>
+        <h2 class="onboarding-title" id="onb-title">5 quick questions.</h2>
+        <p class="onboarding-sub">These shape every pick — and you can edit any time from the ••• menu.</p>
+
+        <div class="onboarding-progress" aria-hidden="true">
+          <span class="onb-dot is-active"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span>
+        </div>
+
+        <form class="onboarding-form" id="onboarding-form" novalidate>
+          <section class="onb-step is-active" data-step="1">
+            <label class="onb-label">Five artists you love</label>
+            <p class="onb-hint">Be specific. These seed your discovery.</p>
+            <input class="onb-input" id="onb-love" type="text" placeholder="Miles Davis, Nujabes, RADWIMPS…" autocomplete="off">
+            <div class="onb-chips" id="onb-love-chips" aria-live="polite"></div>
+          </section>
+          <section class="onb-step" data-step="2">
+            <label class="onb-label">Anything to avoid?</label>
+            <p class="onb-hint">Genres, artists, vibes — anything you'd rather not hear.</p>
+            <input class="onb-input" id="onb-avoid" type="text" placeholder="death metal, country, …" autocomplete="off">
+            <div class="onb-chips" id="onb-avoid-chips" aria-live="polite"></div>
+          </section>
+          <section class="onb-step" data-step="3">
+            <label class="onb-label">A word for each time of day</label>
+            <p class="onb-hint">e.g. morning = "bright but quiet"; night = "intimate, low energy".</p>
+            <div class="onb-grid-2">
+              <label class="onb-mini"><span>Morning</span><input id="onb-morning"   class="onb-input onb-input--mini" type="text" placeholder="bright but quiet"></label>
+              <label class="onb-mini"><span>Afternoon</span><input id="onb-afternoon" class="onb-input onb-input--mini" type="text" placeholder="focused"></label>
+              <label class="onb-mini"><span>Evening</span><input id="onb-evening"   class="onb-input onb-input--mini" type="text" placeholder="warm"></label>
+              <label class="onb-mini"><span>Night</span><input id="onb-night"     class="onb-input onb-input--mini" type="text" placeholder="intimate, low energy"></label>
+            </div>
+          </section>
+          <section class="onb-step" data-step="4">
+            <label class="onb-label">3-5 vibe words</label>
+            <p class="onb-hint">Mood seeds Claudio mixes in when picking — e.g. "rainy walk", "first coffee".</p>
+            <input class="onb-input" id="onb-mood" type="text" placeholder="rainy walk, late drive, after a long call…" autocomplete="off">
+            <div class="onb-chips" id="onb-mood-chips" aria-live="polite"></div>
+          </section>
+          <section class="onb-step" data-step="5">
+            <label class="onb-label">What city?</label>
+            <p class="onb-hint">Used for weather context. Optional.</p>
+            <input class="onb-input" id="onb-city" type="text" placeholder="Beijing" autocomplete="address-level2">
+          </section>
+
+          <div class="onboarding-actions">
+            <button type="button" class="onb-btn onb-btn--ghost" id="onb-skip">Skip this</button>
+            <button type="button" class="onb-btn onb-btn--ghost" id="onb-back" hidden>← Back</button>
+            <button type="button" class="onb-btn onb-btn--primary" id="onb-next">Next →</button>
+            <button type="submit" class="onb-btn onb-btn--primary" id="onb-finish" hidden>Tune my channel</button>
+          </div>
+
+          <div class="onboarding-error" id="onboarding-error" hidden role="alert"></div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Import taste modal — available to any view's ••• menu -->
+    <div class="import-modal" id="import-modal" hidden role="dialog" aria-modal="true" aria-labelledby="import-title">
+      <div class="import-backdrop" id="import-backdrop" aria-hidden="true"></div>
+      <div class="import-card" role="document">
+        <button class="import-close" id="import-close" type="button" aria-label="Close">✕</button>
+        <div class="import-overline" data-i18n="import.overline">IMPORT YOUR TASTE</div>
+        <h2 class="import-title" id="import-title" data-i18n="import.title">Paste anything music-shaped.</h2>
+        <p class="import-sub" data-i18n="import.sub">Spotify Wrapped email, an Apple Music export, a screenshot's OCR, a hand-typed list — Claudio's brain will fish out the artist names.</p>
+
+        <textarea class="import-text" id="import-text" rows="10"
+                  placeholder="Paste here…" data-i18n-placeholder="import.placeholder"></textarea>
+
+        <div class="import-preview" id="import-preview" hidden>
+          <p class="import-preview-label" data-i18n="import.found">Found N artists. Uncheck any you don't want to import:</p>
+          <div class="import-chips" id="import-chips"></div>
+        </div>
+
+        <div class="import-error" id="import-error" hidden role="alert"></div>
+
+        <div class="import-actions">
+          <button type="button" class="import-btn import-btn--ghost" id="import-cancel" data-i18n="import.cancel">Cancel</button>
+          <button type="button" class="import-btn import-btn--primary" id="import-extract" data-i18n="import.extract">Extract artists →</button>
+          <button type="button" class="import-btn import-btn--primary" id="import-merge" hidden data-i18n="import.merge">Add to my taste</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Persona picker modal — available to any view's ••• menu -->
+    <div class="import-modal" id="persona-modal" hidden role="dialog" aria-modal="true" aria-labelledby="persona-title">
+      <div class="import-backdrop" id="persona-backdrop" aria-hidden="true"></div>
+      <div class="import-card" role="document">
+        <button class="import-close" id="persona-close" type="button" aria-label="Close">✕</button>
+        <div class="import-overline">CLAUDIO · DJ PERSONA</div>
+        <h2 class="import-title" id="persona-title" data-i18n="persona.title">Pick a DJ persona</h2>
+        <p class="import-sub" data-i18n="persona.sub">Each persona shapes music picks and on-air style. Saved to your profile when signed in.</p>
+
+        <!-- Pick view (default) -->
+        <section id="persona-pick-view">
+          <div class="persona-list" id="persona-list" style="display:flex;flex-direction:column;gap:0.75rem;margin:1.25rem 0;"></div>
+
+          <div class="import-error" id="persona-error" hidden role="alert"></div>
+
+          <div class="import-actions">
+            <button type="button" class="import-btn import-btn--ghost" id="persona-cancel" data-i18n="persona.cancel">Cancel</button>
+            <button type="button" class="import-btn import-btn--ghost" id="persona-create" data-i18n="persona.create">+ Create custom</button>
+            <button type="button" class="import-btn import-btn--primary" id="persona-save" data-i18n="persona.save">Save</button>
+          </div>
+        </section>
+
+        <!-- Editor view (hidden by default; shown when creating/editing) -->
+        <section id="persona-editor" hidden>
+          <label class="onb-label" data-i18n="persona.editor.name">Persona name</label>
+          <input class="onb-input" id="persona-name" type="text" maxlength="60" placeholder="e.g. Sunday Morning Jazz" style="margin-bottom:4px">
+          <label class="onb-label" style="margin-top:14px" data-i18n="persona.editor.prompt">Prompt (Markdown)</label>
+          <p class="onb-hint" data-i18n="persona.editor.hint">Write your DJ. Must still output JSON {say, play[], reason, segue}.</p>
+          <textarea class="onb-input" id="persona-prompt" rows="12" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;resize:vertical"></textarea>
+          <div class="import-actions" style="margin-top:12px">
+            <button type="button" class="import-btn import-btn--ghost" id="persona-editor-cancel" data-i18n="persona.editor.cancel">Cancel</button>
+            <button type="button" class="import-btn import-btn--ghost" id="persona-editor-delete" hidden data-i18n="persona.editor.delete">Delete</button>
+            <button type="button" class="import-btn import-btn--primary" id="persona-editor-save" data-i18n="persona.editor.save">Save persona</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Share taste modal -->
+    <div class="share-modal" id="share-modal" hidden role="dialog" aria-modal="true" aria-labelledby="share-title">
+      <div class="share-backdrop" id="share-backdrop" aria-hidden="true"></div>
+      <div class="share-card" role="document">
+        <button class="share-close" id="share-close" type="button" aria-label="Close">&#x2715;</button>
+        <div class="share-overline" data-i18n="share.overline">SHARE TASTE</div>
+        <h2 class="share-title" id="share-title" data-i18n="share.title">Make your taste profile public</h2>
+        <p class="share-sub" data-i18n="share.sub">A read-only page anyone can open. Shows your loved artists and vibes — never your listening history, never your feedback.</p>
+
+        <label class="share-toggle">
+          <input type="checkbox" id="share-public-toggle">
+          <span class="share-toggle-text" data-i18n="share.public">Public</span>
+        </label>
+
+        <div class="share-url-row" id="share-url-row" hidden>
+          <input type="text" id="share-url" class="share-url" readonly>
+          <button type="button" class="share-btn share-btn--primary" id="share-copy" data-i18n="share.copy">Copy</button>
+        </div>
+
+        <div class="share-error" id="share-error" hidden role="alert"></div>
+      </div>
+    </div>
+
     <script src="audio-state.js"></script>
+    <script src="i18n.js"></script>
     <script src="view-player.js"></script>
     <script src="view-library.js"></script>
     <script src="view-stack.js"></script>
     <script src="app.js"></script>
+    <script src="onboarding.js"></script>
+    <script src="import.js"></script>
+    <script src="persona.js"></script>
+    <script src="share.js"></script>
+    <script src="push.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err =>
+            console.warn('[SW] registration failed:', err.message)
+          );
+        });
+      }
+    </script>
 </body>
 </html>

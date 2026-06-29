@@ -1,76 +1,14 @@
-const { spawn } = require('child_process');
+// Brain provider router. Picks once at boot based on env:
+//   ANTHROPIC_API_KEY set → SDK (fast, ~1-3s)
+//   else                  → CLI fallback (slow ~7-30s, but works without API key)
+//
+// Single contract: generateResponse(prompt) → {say, play[], reason, segue}.
+const useSdk = !!process.env.ANTHROPIC_API_KEY;
+const provider = useSdk
+    ? require('./claude-sdk')
+    : require('./claude-cli');
 
-// Invokes claude -p --output json, parses NDJSON and extracts the result line.
-// The prompt must ask Claude to respond with JSON only: {say, play[], reason, segue}
-class ClaudeBrain {
-    async generateResponse(prompt) {
-        return new Promise((resolve, reject) => {
-            // NB: current Claude Code CLI uses --output-format (single flag),
-            // not the older `--output json`. Drop --no-ansi: not exposed in
-            // current help and JSON output has no ANSI to begin with.
-            // --model haiku: ~100x cheaper than Opus 4.7 (~$0.005 vs $0.50 per pick).
-            const proc = spawn('claude', [
-                '--print',
-                '--output-format', 'json',
-                '--model', 'claude-haiku-4-5-20251001'
-            ], {
-                stdio: ['pipe', 'pipe', 'pipe'],
-                env: { ...process.env }
-            });
+console.log(`[Brain] provider=${useSdk ? 'sdk' : 'cli'} model=${process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'} streaming=${useSdk}`);
 
-            let stdout = '';
-            let stderr = '';
-
-            proc.stdout.on('data', (d) => { stdout += d.toString(); });
-            proc.stderr.on('data', (d) => { stderr += d.toString(); });
-
-            proc.stdin.write(prompt);
-            proc.stdin.end();
-
-            proc.on('close', (code) => {
-                if (code !== 0 && !stdout) {
-                    console.error('[Claude] stderr:', stderr);
-                    return resolve(this._fallback(`exit code ${code}`));
-                }
-
-                // NDJSON: find the {type:"result"} line
-                const lines = stdout.trim().split('\n');
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    try {
-                        const obj = JSON.parse(lines[i]);
-                        if (obj.type === 'result' && obj.result) {
-                            // Strip markdown code fences if present
-                            const raw = obj.result.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-                            try {
-                                return resolve(JSON.parse(raw));
-                            } catch {
-                                // result isn't JSON — fallback
-                                return resolve(this._fallback('result not JSON: ' + obj.result.slice(0, 80)));
-                            }
-                        }
-                    } catch {}
-                }
-
-                console.error('[Claude] Could not find result in output:', stdout.slice(0, 200));
-                resolve(this._fallback('no result line found'));
-            });
-
-            proc.on('error', (err) => {
-                console.error('[Claude] spawn error:', err.message);
-                resolve(this._fallback(err.message));
-            });
-        });
-    }
-
-    _fallback(reason) {
-        console.warn('[Claude] fallback triggered:', reason);
-        return {
-            say: '我的思路刚才断了一下，不过音乐还在。',
-            play: [],
-            reason: reason,
-            segue: 'direct'
-        };
-    }
-}
-
-module.exports = new ClaudeBrain();
+module.exports = provider;
+module.exports.supportsStreaming = useSdk;

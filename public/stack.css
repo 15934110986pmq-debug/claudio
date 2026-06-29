@@ -1118,7 +1118,9 @@ body.player-open .player-info {
 .cover-floater {
     position: fixed;
     margin: 0;
-    z-index: 9999;
+    /* Below the more-dropdown (z 6000) and auth modal (z 9999), above player
+       overlay (z 5000). Previously 9999 blocked the auth modal entirely. */
+    z-index: 5500;
     border-radius: 4px;
     overflow: hidden;
     background-color: #1a1715;
@@ -1159,14 +1161,50 @@ body.player-open .player-info {
 @media (max-width: 768px) {
     body { padding: 18px 16px 100px; }
     .topnav, .page-header, .page-sub, .library, .hint { max-width: 100%; }
+    .topnav { flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .view-switch { order: 3; flex-basis: 100%; justify-content: center; display: flex; }
+    .topnav-brand { font-size: 12px; }
     .page-title { font-size: 22px; }
-    .body-inner { grid-template-columns: 1fr; gap: 18px; }
-    .cover { width: 140px; height: 140px; justify-self: center; }
-    .info-title { font-size: 24px; }
+    .page-header { margin-bottom: 18px; }
+    .page-sub { font-size: 13px; margin-bottom: 24px; }
+    .body-inner { grid-template-columns: 1fr; gap: 16px; padding: 6px 18px 22px; }
+    .cover { width: 130px; height: 130px; justify-self: center; }
+    .info-title { font-size: 22px; }
+    .listen-btn { padding: 12px 20px; font-size: 12px; }   /* bigger tap target */
 
-    .player-stage { grid-template-columns: 1fr; gap: 32px; padding: 80px 24px 20px; height: auto; min-height: 100vh; }
-    .cover-slot { width: 220px; height: 220px; justify-self: center; }
-    .player-title { font-size: 36px; }
+    .player-stage { grid-template-columns: 1fr; gap: 28px; padding: 70px 20px 28px; height: auto; min-height: 100vh; min-height: 100dvh; }
+    .cover-slot { width: 200px; height: 200px; justify-self: center; }
+    .player-title { font-size: 32px; }
+    .player-lyrics { font-size: 16px; padding: 10px 0; }
+    .player-nav { padding: 18px 20px; }
+
+    /* Now-chip — narrower on phones, but still legible */
+    .now-chip { max-width: calc(100vw - 24px); padding: 6px 12px 6px 6px; bottom: 18px; }
+    .now-chip-cover { width: 28px; height: 28px; }
+    .now-chip-title { font-size: 11px; max-width: 180px; }
+    .now-chip-artist { font-size: 9px; max-width: 180px; }
+
+    /* Auth modal — fit narrow screens */
+    .auth-card { padding: 28px 22px 22px; width: min(380px, calc(100vw - 24px)); }
+    .auth-title { font-size: 24px; }
+    .auth-sub { font-size: 12px; margin-bottom: 20px; }
+    .auth-field input { font-size: 16px; }   /* prevent iOS auto-zoom */
+
+    /* More dropdown — full width on narrow */
+    .more-dropdown { min-width: 220px; right: -8px; }
+}
+
+@media (max-width: 480px) {
+    body { padding: 14px 12px 100px; }
+    .strip { padding: 14px 14px; height: 56px; gap: 12px; }
+    .strip-nav { gap: 12px; font-size: 10px; }
+    .strip-artist { font-size: 11px; letter-spacing: 0.06em; }
+    .read-badge { padding: 3px 8px; font-size: 9px; letter-spacing: 0.10em; }
+    .cover { width: 110px; height: 110px; }
+    .info-title { font-size: 20px; }
+    .info-overline { font-size: 9px; letter-spacing: 0.14em; }
+    .info-feat { font-size: 12px; }
+    .preview-text { font-size: 11px; line-height: 1.5; }
 }
 
 /* ─── Reduced motion ──────────────────────────────────────────────────────── */

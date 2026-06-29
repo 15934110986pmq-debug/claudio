@@ -1,0 +1,16 @@
+[Unit]
+Description=Claudio — Personal AI Radio DJ
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/claudio/claudio
+ExecStart=/usr/bin/env node server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:%h/claudio/claudio/logs/claudio.log
+StandardError=append:%h/claudio/claudio/logs/claudio.error.log
+# Inherits ~/.bashrc env via the install hook; .env is loaded by dotenv inside the app.
+
+[Install]
+WantedBy=default.target

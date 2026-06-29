@@ -3,9 +3,14 @@
 //
 // Browsers tear down <audio> elements on full page load, so we save the
 // playback position to localStorage and the receiving page seeks to it.
+//
+// `save`/`load` are for ephemeral playback state (1h TTL — older means the
+// session is too stale to restore meaningfully). `getPref`/`setPref` are for
+// user preferences (volume etc.) that should never expire.
 
 (function () {
     const KEY = 'claudio:audio';
+    const PREFS_KEY = 'claudio:prefs';
     const MAX_AGE_MS = 60 * 60_000;  // 1h — older than this is too stale to restore
 
     function save(patch) {
@@ -33,5 +38,24 @@
         try { localStorage.removeItem(KEY); } catch {}
     }
 
-    window.ClaudioAudio = { save, load, clear };
+    function loadPrefs() {
+        try {
+            const raw = localStorage.getItem(PREFS_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
+    }
+
+    function getPref(key, fallback) {
+        const p = loadPrefs();
+        return (key in p) ? p[key] : fallback;
+    }
+
+    function setPref(key, value) {
+        try {
+            const next = { ...loadPrefs(), [key]: value };
+            localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+        } catch { /* ignore */ }
+    }
+
+    window.ClaudioAudio = { save, load, clear, getPref, setPref };
 })();

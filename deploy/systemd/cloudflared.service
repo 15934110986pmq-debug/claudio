@@ -1,0 +1,15 @@
+[Unit]
+Description=cloudflared tunnel for Claudio
+After=network.target claudio.service
+Wants=claudio.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared tunnel --config %h/.cloudflared/config.yml run
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:%h/claudio/claudio/logs/cloudflared.log
+StandardError=append:%h/claudio/claudio/logs/cloudflared.error.log
+
+[Install]
+WantedBy=default.target

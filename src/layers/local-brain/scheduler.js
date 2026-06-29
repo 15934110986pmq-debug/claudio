@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const tasteEvolver = require('./taste-evolver');
 
 const TZ = 'Asia/Taipei';
 
@@ -31,6 +32,17 @@ class RadioScheduler {
             const h = taipeiHour();
             if (h >= 7 && h <= 23) {
                 this._trigger('整点了，根据现在的时间和情绪规则推荐一首歌。');
+            }
+        }, { timezone: TZ });
+
+        // Weekly taste auto-evolution — Sunday 03:00 (Taipei)
+        cron.schedule('0 3 * * 0', async () => {
+            console.log('[Evolver] weekly run starting');
+            try {
+                const results = await tasteEvolver.runForAll();
+                console.log('[Evolver] complete:', JSON.stringify(results));
+            } catch (e) {
+                console.error('[Evolver] crashed:', e.message);
             }
         }, { timezone: TZ });
 

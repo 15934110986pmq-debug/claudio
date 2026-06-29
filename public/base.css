@@ -23,16 +23,20 @@ body {
 }
 
 /* View containers. position:fixed so each view fills viewport regardless of
-   the others' presence in DOM. .is-active controls visibility + interaction. */
+   the others' presence in DOM. .is-active controls visibility + interaction.
+   Use dvh so the iOS URL-bar collapse doesn't crop content. */
 .view {
     position: fixed;
     inset: 0;
+    height: 100vh;
+    height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
     z-index: 1;
+    -webkit-overflow-scrolling: touch;
 }
 .view.is-active {
     visibility: visible;
@@ -40,8 +44,288 @@ body {
     pointer-events: auto;
     z-index: 2;
 }
-/* Player view is full-screen with no scroll */
+/* Player view is full-screen with no scroll on desktop. */
 .view-player.is-active { overflow: hidden; }
+
+/* Mobile: player content (vinyl + lyrics + chat + controls) overflows the
+   viewport — must scroll, otherwise chat input + controls get clipped. */
+@media (max-width: 1024px) {
+    .view-player.is-active { overflow-y: auto; }
+}
+
+/* Reduce 300ms tap delay on touch + prevent iOS auto-zoom on text inputs */
+button, a, input[type="button"], input[type="submit"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ─── Shared: ••• menu (works in any view, including views with no Fraunces) ── */
+.more-menu { position: relative; }
+
+.more-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #888073;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    transition: color 0.3s;
+}
+.more-btn:hover { color: #f5efe6; }
+
+.more-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 6000;
+    min-width: 220px;
+    padding: 6px;
+    background: rgba(20, 18, 16, 0.95);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-radius: 8px;
+    border: 0.5px solid rgba(255, 255, 255, 0.10);
+    box-shadow:
+        0 24px 60px -20px rgba(0, 0, 0, 0.7),
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+    animation: menuIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: top right;
+}
+.more-dropdown[hidden] { display: none; }
+
+@keyframes menuIn {
+    from { opacity: 0; transform: scale(0.95) translateY(-6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.more-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: #f5efe6;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.more-item:hover  { background: rgba(255, 255, 255, 0.05); }
+.more-item:active { background: rgba(255, 255, 255, 0.08); }
+.more-item:disabled,
+.more-item--ghost {
+    cursor: not-allowed;
+    color: #4a4540;
+}
+.more-item--ghost:hover { background: none; }
+
+.more-icon {
+    width: 18px;
+    text-align: center;
+    color: #888073;
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+}
+.more-tag {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #4a4540;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.more-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px;
+}
+
+/* ─── Shared: Auth modal (same DOM, opens from any view's ••• menu) ──────── */
+.auth-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.auth-modal[hidden] { display: none; }
+/* Same fix for the other modal families — their `display: flex` rule beats the
+   UA `[hidden] { display: none }`, so without these explicit overrides clicking
+   the X or backdrop sets `hidden=true` but the modal stays on screen. */
+.share-modal[hidden],
+.import-modal[hidden],
+.persona-modal[hidden] { display: none; }
+
+@keyframes authFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.auth-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 6, 4, 0.92);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.auth-card {
+    position: relative;
+    width: min(420px, calc(100vw - 32px));
+    background: #0c0a09;
+    color: #f5efe6;
+    border-radius: 12px;
+    padding: 36px 32px 28px;
+    box-shadow:
+        0 50px 100px -20px rgba(0, 0, 0, 0.8),
+        0 0 0 0.5px rgba(255, 255, 255, 0.08) inset;
+    animation: authCardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes authCardIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #888073;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px 10px;
+    line-height: 1;
+    transition: color 0.2s, transform 0.3s;
+}
+.auth-close:hover { color: #f5efe6; transform: rotate(90deg); }
+
+.auth-overline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: #d4a574;
+    margin-bottom: 14px;
+}
+.auth-title {
+    font-family: 'Fraunces', serif;
+    font-size: 30px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 8px;
+}
+.auth-sub {
+    font-size: 13px;
+    color: #888073;
+    margin-bottom: 24px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 300;
+}
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-field { display: flex; flex-direction: column; gap: 6px; }
+.auth-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #888073;
+}
+.auth-field input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #f5efe6;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;        /* 16px+ avoids iOS focus auto-zoom */
+    transition: border-color 0.2s, background 0.2s;
+}
+.auth-field input::placeholder { color: #4a4540; }
+.auth-field input:focus {
+    outline: none;
+    border-color: rgba(212, 165, 116, 0.5);
+    background: rgba(255, 255, 255, 0.06);
+}
+.auth-error {
+    font-size: 12px;
+    color: #fb7185;
+    padding: 8px 10px;
+    background: rgba(251, 113, 133, 0.08);
+    border: 1px solid rgba(251, 113, 133, 0.2);
+    border-radius: 6px;
+}
+.auth-success {
+    font-size: 12px;
+    color: #d4a574;
+    padding: 8px 10px;
+    background: rgba(212, 165, 116, 0.08);
+    border: 1px solid rgba(212, 165, 116, 0.25);
+    border-left: 3px solid #d4a574;
+    border-radius: 6px;
+}
+.auth-success a { color: #d4a574; text-decoration: underline; }
+.auth-hint {
+    font-size: 11px;
+    color: #888073;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+}
+.auth-submit {
+    background: #f5efe6;
+    color: #0c0a09;
+    border: none;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+}
+.auth-submit:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 20px rgba(245, 239, 230, 0.15);
+}
+.auth-submit:active { transform: scale(0.98); }
+.auth-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.auth-foot {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 11px;
+    color: #888073;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+}
+.auth-link {
+    color: #888073;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.auth-link:hover { color: #d4a574; }
+.auth-sep { color: #4a4540; }
 
 /* When a view becomes the active route, fire its own background — these are
    safety colors in case the view-specific stylesheet is briefly inactive
@@ -55,3 +339,361 @@ body {
 ::view-transition-new(root) { animation: 0.35s ease both vt-fade-in;  }
 @keyframes vt-fade-out { to   { opacity: 0; } }
 @keyframes vt-fade-in  { from { opacity: 0; } }
+
+/* ─── Onboarding modal — first-run taste wizard ─────────────────────────── */
+/* Auto-opens once per account; reopenable from ••• menu "Edit my taste". */
+.onboarding-modal {
+    position: fixed; inset: 0;
+    z-index: 9000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+}
+.onboarding-modal[hidden] { display: none; }
+.onboarding-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(8, 6, 4, 0.88);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.onboarding-card {
+    position: relative;
+    width: min(540px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #0c0a09;
+    color: #f5efe6;
+    border: 0.5px solid rgba(245, 239, 230, 0.08);
+    border-radius: 18px;
+    padding: 36px 32px 28px;
+    box-shadow:
+        0 50px 100px -20px rgba(0, 0, 0, 0.85),
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+    animation: onbIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes onbIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.onboarding-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none;
+    color: #888073; font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer; line-height: 1; padding: 6px 10px;
+    transition: color 0.2s, transform 0.3s;
+}
+.onboarding-close:hover { color: #f5efe6; transform: rotate(90deg); }
+.onboarding-overline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #d4a574; font-weight: 500; margin-bottom: 12px;
+}
+.onboarding-title {
+    font-family: 'Fraunces', serif; font-weight: 300;
+    font-size: 30px; line-height: 1.1; color: #f5efe6;
+    margin-bottom: 8px; letter-spacing: -0.02em;
+}
+.onboarding-sub {
+    font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+    font-size: 13px; color: #888073; margin-bottom: 22px;
+}
+.onboarding-progress { display: flex; gap: 6px; margin-bottom: 24px; }
+.onb-dot {
+    width: 22px; height: 3px; border-radius: 2px;
+    background: rgba(245, 239, 230, 0.1);
+    transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.onb-dot.is-active { background: #d4a574; }
+.onb-step { display: none; }
+.onb-step.is-active {
+    display: block;
+    animation: onbStepIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes onbStepIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.onb-label {
+    display: block; font-size: 14px; font-weight: 500;
+    color: #f5efe6; margin-bottom: 6px;
+    font-family: 'Inter', sans-serif;
+}
+.onb-hint {
+    font-size: 12px; color: #888073; margin-bottom: 14px;
+    font-family: 'Inter', sans-serif;
+}
+.onb-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f5efe6;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.3s, background 0.3s;
+    font-family: 'Inter', sans-serif;
+}
+.onb-input:focus {
+    border-color: rgba(212, 165, 116, 0.5);
+    background: rgba(255, 255, 255, 0.06);
+}
+.onb-input::placeholder { color: #4a4540; }
+.onb-input--mini { padding: 10px 12px; font-size: 14px; }
+.onb-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.onb-mini { display: flex; flex-direction: column; gap: 6px; }
+.onb-mini span {
+    font-size: 10px; color: #888073;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+}
+.onb-chips {
+    margin-top: 10px; display: flex; flex-wrap: wrap;
+    gap: 6px; min-height: 28px;
+}
+.onb-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(212, 165, 116, 0.12);
+    border: 1px solid rgba(212, 165, 116, 0.25);
+    color: #f5efe6;
+    font-size: 12.5px; font-family: 'Inter', sans-serif;
+    padding: 4px 8px 4px 12px;
+    border-radius: 999px;
+    animation: onbChipIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes onbChipIn {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.onb-chip-x {
+    background: none; border: none; cursor: pointer;
+    color: #888073; font-size: 16px; line-height: 1; padding: 0 4px;
+    transition: color 0.15s;
+}
+.onb-chip-x:hover { color: #f5efe6; }
+.onboarding-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 28px; padding-top: 20px;
+    border-top: 1px solid rgba(245, 239, 230, 0.06);
+}
+.onb-btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s, color 0.2s;
+    border: 1px solid transparent;
+}
+.onb-btn--ghost {
+    background: none; color: #888073;
+    border-color: rgba(245, 239, 230, 0.10);
+}
+.onb-btn--ghost:hover { color: #f5efe6; border-color: rgba(245, 239, 230, 0.22); }
+.onb-btn--primary {
+    background: #f5efe6; color: #0c0a09;
+    border-color: #f5efe6;
+}
+.onb-btn--primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(245, 239, 230, 0.12); }
+.onb-btn--primary:active { transform: scale(0.98); }
+.onb-btn--primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.onboarding-error {
+    margin-top: 12px; padding: 10px 14px;
+    border-left: 3px solid #fb7185;
+    background: rgba(251, 113, 133, 0.08);
+    color: #fda4af;
+    font-size: 12px; border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+}
+@media (max-width: 600px) {
+    .onboarding-card { padding: 28px 22px 22px; max-height: 95vh; }
+    .onboarding-title { font-size: 24px; }
+    .onb-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Import taste modal ────────────────────────────────────────────────────── */
+.import-modal {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+}
+.import-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(12, 10, 9, 0.78);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.import-card {
+    position: relative;
+    width: min(600px, 100%); max-height: 90vh; overflow-y: auto;
+    background: var(--bg, #0c0a09);
+    border: 1px solid rgba(245, 239, 230, 0.08);
+    border-radius: 18px; padding: 36px 32px 28px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    animation: onbIn 0.5s var(--soft-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+.import-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none;
+    color: var(--text-dim, #888073); font-size: 20px;
+    cursor: pointer; line-height: 1; padding: 4px;
+    transition: color 0.2s;
+}
+.import-close:hover { color: var(--text, #f5efe6); }
+.import-overline {
+    font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--accent, #d4a574); font-weight: 500; margin-bottom: 12px;
+}
+.import-title {
+    font-family: 'Fraunces', serif; font-weight: 400;
+    font-size: 28px; line-height: 1.15;
+    color: var(--text, #f5efe6); margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.import-sub {
+    font-size: 13px; color: var(--text-dim, #888073);
+    margin-bottom: 22px; line-height: 1.55;
+}
+.import-text {
+    width: 100%; min-height: 180px; resize: vertical;
+    background: rgba(245, 239, 230, 0.04);
+    border: 1px solid rgba(245, 239, 230, 0.12);
+    color: var(--text, #f5efe6); padding: 14px;
+    font-size: 13px; line-height: 1.5;
+    border-radius: 10px; outline: none;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    transition: border-color 0.3s;
+}
+.import-text:focus { border-color: var(--accent, #d4a574); }
+.import-preview { margin-top: 18px; }
+.import-preview-label {
+    font-size: 12px; color: var(--text-dim, #888073); margin-bottom: 12px;
+}
+.import-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    max-height: 240px; overflow-y: auto;
+    padding: 8px; border-radius: 8px;
+    background: rgba(245, 239, 230, 0.02);
+}
+.import-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(212, 165, 116, 0.12);
+    border: 1px solid rgba(212, 165, 116, 0.25);
+    color: var(--text, #f5efe6); font-size: 12.5px;
+    padding: 4px 10px; border-radius: 999px;
+    cursor: pointer; user-select: none;
+    transition: opacity 0.2s;
+}
+.import-chip.is-off {
+    opacity: 0.35;
+    background: rgba(245, 239, 230, 0.04);
+    border-color: rgba(245, 239, 230, 0.1);
+}
+.import-chip input { accent-color: var(--accent, #d4a574); }
+.import-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 22px; padding-top: 18px;
+    border-top: 1px solid rgba(245, 239, 230, 0.06);
+}
+.import-btn {
+    padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; font-weight: 500; font-family: inherit;
+    cursor: pointer; border: 1px solid transparent;
+    transition: background 0.3s, transform 0.2s, color 0.2s;
+}
+.import-btn--ghost {
+    background: none; color: var(--text-dim, #888073);
+    border-color: rgba(245, 239, 230, 0.12);
+}
+.import-btn--ghost:hover { color: var(--text, #f5efe6); border-color: rgba(245, 239, 230, 0.25); }
+.import-btn--primary { background: var(--accent, #d4a574); color: var(--bg, #0c0a09); }
+.import-btn--primary:hover { transform: translateY(-1px); }
+.import-btn--primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.import-error {
+    margin-top: 14px; padding: 10px 14px;
+    border-left: 3px solid #e57396;
+    background: rgba(229, 115, 150, 0.06);
+    color: #f6c5be; font-size: 13px; border-radius: 6px;
+}
+@media (max-width: 600px) {
+    .import-card { padding: 28px 22px 22px; }
+    .import-title { font-size: 22px; }
+}
+
+/* ── Share taste modal ─────────────────────────────────────────────────────── */
+.share-modal {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+}
+.share-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(12, 10, 9, 0.78);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.share-card {
+    position: relative;
+    width: min(440px, 100%);
+    background: var(--bg, #0c0a09);
+    border: 1px solid rgba(245, 239, 230, 0.08);
+    border-radius: 18px; padding: 32px 28px 24px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    animation: onbIn 0.5s var(--soft-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+.share-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none;
+    color: var(--text-dim, #888073); font-size: 20px;
+    cursor: pointer; line-height: 1; padding: 4px;
+    transition: color 0.2s;
+}
+.share-close:hover { color: var(--text, #f5efe6); }
+.share-overline {
+    font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--accent, #d4a574); font-weight: 500; margin-bottom: 12px;
+}
+.share-title {
+    font-family: 'Fraunces', serif; font-weight: 400;
+    font-size: 24px; color: var(--text, #f5efe6);
+    margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.share-sub {
+    font-size: 13px; color: var(--text-dim, #888073);
+    margin-bottom: 20px; line-height: 1.55;
+}
+.share-toggle {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px;
+    background: rgba(245, 239, 230, 0.03);
+    border-radius: 10px; cursor: pointer; margin-bottom: 16px;
+}
+.share-toggle input { accent-color: var(--accent, #d4a574); transform: scale(1.2); }
+.share-toggle-text { font-size: 14px; color: var(--text, #f5efe6); }
+.share-url-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.share-url {
+    flex: 1;
+    background: rgba(245, 239, 230, 0.04);
+    border: 1px solid rgba(245, 239, 230, 0.12);
+    color: var(--text, #f5efe6);
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    outline: none;
+    transition: border-color 0.3s;
+}
+.share-url:focus { border-color: var(--accent, #d4a574); }
+.share-btn {
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    font-family: inherit; cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.2s;
+}
+.share-btn--primary { background: var(--accent, #d4a574); color: var(--bg, #0c0a09); }
+.share-btn--primary:hover { transform: translateY(-1px); }
+.share-error {
+    margin-top: 14px; padding: 10px 14px;
+    border-left: 3px solid #e57396;
+    background: rgba(229, 115, 150, 0.06);
+    color: #f6c5be; font-size: 13px; border-radius: 6px;
+}

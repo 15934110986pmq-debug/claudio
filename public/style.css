@@ -401,6 +401,38 @@ body.paused .album-art::after { animation-play-state: paused; }
     font-weight: 300;
 }
 
+/* "Why this song" — the LLM's per-pick explanation. Sits under the static
+   editorial line; subtle, smaller, soft fade-in when a new reason arrives.
+   This is the visual marker of Claudio's anti-filter-bubble ethos: every
+   song shows its rationale, where Spotify hides it. */
+.track-reason {
+    margin-top: 8px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-faint);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.005em;
+    max-width: 38ch;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out), color 0.4s;
+}
+.track-reason.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.track-reason:hover { color: var(--text-dim); }
+.track-reason-label {
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+    vertical-align: 1px;
+}
+
 /* ─── Lyrics block (repurposed for DJ speech log) ─────────────────────────── */
 .lyrics {
     position: relative;
@@ -703,22 +735,146 @@ body.paused .album-art::after { animation-play-state: paused; }
     100% { opacity: 0; transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); }
 }
 
+/* Volume — icon + horizontal slider. Slider collapses to 0 width when idle
+   on desktop, expands on hover/focus. Icon glyph reacts to current level via
+   data-level. */
+.volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.volume-btn {
+    color: var(--text-dim);
+    transition: color 0.3s;
+}
+.volume-btn:hover { color: var(--text); }
+.volume-icon { width: 20px; height: 20px; transition: transform 0.4s var(--spring); }
+.volume-wave {
+    transition: opacity 0.25s var(--ease-out), transform 0.3s var(--spring);
+    transform-origin: 14px 12px;
+}
+.volume-wave--low  { opacity: 0; }
+.volume-wave--high { opacity: 0; }
+.volume-mute {
+    opacity: 0;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    transition: opacity 0.2s;
+}
+.volume[data-level="low"]  .volume-wave--low  { opacity: 1; }
+.volume[data-level="mid"]  .volume-wave--low  { opacity: 1; }
+.volume[data-level="high"] .volume-wave--low  { opacity: 1; }
+.volume[data-level="high"] .volume-wave--high { opacity: 1; }
+.volume[data-level="mute"] .volume-mute       { opacity: 1; color: #e57396; }
+.volume[data-level="mute"] .volume-btn        { color: #e57396; }
+
+.volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 88px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(
+        to right,
+        var(--text) 0%,
+        var(--text) calc(var(--vol, 100%) * 1),
+        rgba(245, 239, 230, 0.15) calc(var(--vol, 100%) * 1),
+        rgba(245, 239, 230, 0.15) 100%
+    );
+    cursor: pointer;
+    outline: none;
+    transition: opacity 0.3s var(--ease-out), width 0.35s var(--soft-spring);
+}
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--text);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s var(--spring);
+}
+.volume-slider::-moz-range-thumb {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--text);
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+.volume-slider:hover::-webkit-slider-thumb,
+.volume-slider:focus-visible::-webkit-slider-thumb { transform: scale(1.25); }
+.volume-slider:hover::-moz-range-thumb,
+.volume-slider:focus-visible::-moz-range-thumb     { transform: scale(1.25); }
+
+/* Fill the slider gradient in JS-free terms: paint a fill proportional to value
+   using a CSS variable set by the input event. Fallback for browsers without
+   ::-webkit-slider-runnable-track styling. */
+.volume[data-level="mute"] .volume-slider {
+    background: rgba(245, 239, 230, 0.15);
+}
+
 /* ─── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
-    .player-stage { grid-template-columns: 1fr; gap: 40px; padding: 12px 32px 40px; height: auto; min-height: calc(100vh - 100px); }
+    .player-stage {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        padding: 12px 32px 40px;
+        height: auto;
+        min-height: auto;
+        align-items: start;
+        padding-top: 80px;
+    }
     .art-side { order: 1; }
     .info-side { order: 2; max-width: 100%; }
-    .vinyl-stage { width: min(360px, 80vw); margin: 0 auto; }
-    .track-title { font-size: 48px; }
+    .vinyl-stage { width: min(320px, 70vw); margin: 0 auto; }
+    .track-title { font-size: 44px; }
+    .lyrics { height: 110px; }
 }
 
 @media (max-width: 600px) {
-    .player-nav { padding: 20px 24px; }
-    .player-stage { padding: 8px 24px 32px; }
+    .player-nav {
+        padding: 14px 18px;
+        font-size: 10px;
+    }
+    .nav-center { font-size: 9px; letter-spacing: 0.18em; }
+    .nav-btn { font-size: 10px; gap: 6px; }
+    .player-stage {
+        padding: 70px 20px 24px;
+        gap: 24px;
+    }
+    .vinyl-stage { width: min(260px, 72vw); }
     .vinyl-wrapper { transform: translateX(28%); }
-    .track-title { font-size: 36px; }
-    .lyric-line { font-size: 16px; }
-    .buttons { gap: 20px; }
+    .album-art-label { font-size: 24px; }
+    .track-title { font-size: 34px; }
+    .artist { font-size: 15px; }
+    .album-name { font-size: 12px; }
+    .track-reason { font-size: 11.5px; max-width: 100%; margin-top: 6px; }
+    .track-reason-label { font-size: 9px; letter-spacing: 0.16em; margin-right: 5px; }
+    .lyrics { height: 96px; }
+    .lyric-line { font-size: 15px; }
+    .lyric-line--user { font-size: 13px; }
+    /* iOS auto-zooms on focus when font-size < 16px — keep input at 16. */
+    .chat-input input { font-size: 16px; padding: 8px 4px; }
+    .chat-input { padding-top: 10px; gap: 10px; }
+    .buttons { gap: 18px; }
+    .ctrl { --size: 42px; }
+    .ctrl--primary { --size: 58px; }
+    /* On phones, the device's own volume rocker is the right tool — hide the
+       in-app slider but keep the mute toggle (icon button). */
+    .volume-slider { display: none; }
+    .secondary-actions { gap: 16px; }
+}
+
+/* iPhone SE / very narrow */
+@media (max-width: 380px) {
+    .player-nav { padding: 12px 14px; }
+    .nav-center { display: none; }   /* status text wraps badly under 360 */
+    .player-stage { padding: 64px 16px 20px; }
+    .vinyl-stage { width: 220px; }
+    .track-title { font-size: 30px; }
+    .lyrics { height: 84px; }
 }
 
 /* ─── Reduced motion ──────────────────────────────────────────────────────── */
@@ -730,3 +886,107 @@ body.paused .album-art::after { animation-play-state: paused; }
     }
     .info-side > * { opacity: 1; transform: none; }
 }
+
+/* ─── Novelty knob — Safe ←→ Adventurous ─────────────────────────────────── */
+/* The visible UI hint of Claudio's core promise: the user controls how far
+   outside the bubble each pick is. */
+.novelty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 4px 2px;
+}
+.novelty-label {
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: var(--text-faint);
+    font-weight: 500;
+    transition: color 0.3s;
+    flex-shrink: 0;
+}
+.novelty[data-level="safe"]        .novelty-label--left  { color: var(--text-dim); }
+.novelty[data-level="adventurous"] .novelty-label--right { color: var(--accent); }
+.novelty[data-level="balanced"]    .novelty-label        { color: var(--text-faint); }
+.novelty-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(
+        to right,
+        var(--text-dim) 0%,
+        var(--accent) calc(var(--nov, 50%) * 1),
+        rgba(245, 239, 230, 0.10) calc(var(--nov, 50%) * 1),
+        rgba(245, 239, 230, 0.10) 100%
+    );
+    cursor: pointer;
+    outline: none;
+}
+.novelty-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 8px rgba(212, 165, 116, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s var(--spring);
+}
+.novelty-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 8px rgba(212, 165, 116, 0.4);
+    cursor: pointer;
+}
+.novelty-slider:hover::-webkit-slider-thumb,
+.novelty-slider:focus-visible::-webkit-slider-thumb { transform: scale(1.2); }
+.novelty-slider:hover::-moz-range-thumb,
+.novelty-slider:focus-visible::-moz-range-thumb     { transform: scale(1.2); }
+@media (max-width: 600px) {
+    .novelty-label { font-size: 8px; letter-spacing: 0.18em; }
+    .novelty { margin-top: 10px; }
+}
+
+/* DJ composing — visible only during SDK-streamed responses. Sits inside the
+   lyrics box, fades a stream of in-flight chars + a soft blinking cursor.
+   This is the visible proof that the LLM is "thinking out loud" in real time. */
+.dj-composing {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    padding: 6px 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.85;
+    animation: composeIn 0.4s var(--soft-spring);
+}
+@keyframes composeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.85; transform: translateY(0); } }
+.dj-composing-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+.dj-composing-cursor {
+    display: inline-block;
+    width: 6px; height: 14px;
+    background: var(--accent);
+    margin-left: 2px;
+    animation: cursorBlink 1s infinite;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+@keyframes cursorBlink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }

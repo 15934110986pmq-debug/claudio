@@ -357,18 +357,22 @@
         const floater = source.cloneNode(true);
         floater.classList.remove('now-chip-cover');
         floater.classList.add('cover-floater', 'flying-out');
-        floater.style.cssText = `
-            position: fixed;
-            left: ${sourceRect.left}px;
-            top: ${sourceRect.top}px;
-            width: ${sourceRect.width}px;
-            height: ${sourceRect.height}px;
-            margin: 0;
-            z-index: 9999;
-            visibility: visible;
-            opacity: 1;
-            border-radius: ${fromChip ? '50%' : '4px'};
-        `;
+
+        // Set styles INDIVIDUALLY so the inline background-image cloned from
+        // the source (the YT thumbnail URL) is preserved. Using style.cssText
+        // wipes the style attribute, losing the cover image entirely.
+        floater.style.position = 'fixed';
+        floater.style.left = sourceRect.left + 'px';
+        floater.style.top = sourceRect.top + 'px';
+        floater.style.width = sourceRect.width + 'px';
+        floater.style.height = sourceRect.height + 'px';
+        floater.style.margin = '0';
+        floater.style.visibility = 'visible';
+        floater.style.opacity = '1';
+        floater.style.borderRadius = fromChip ? '50%' : '4px';
+        // Below dropdown (6000) + auth modal (9999), above player overlay (5000)
+        floater.style.zIndex = '5500';
+
         document.body.appendChild(floater);
         currentFloater = floater;
 
@@ -483,8 +487,8 @@
         const authClose    = document.getElementById('auth-close');
         const authForm     = document.getElementById('auth-form');
         const authEmail    = document.getElementById('auth-email');
-        const authPassword = document.getElementById('auth-password');
         const authError    = document.getElementById('auth-error');
+        const authSuccess  = document.getElementById('auth-success');
         const authSubmit   = document.getElementById('auth-submit');
 
         if (!moreBtn || !moreDropdown) return;
@@ -505,11 +509,31 @@
             setMenuOpen(false);
         });
 
+        // Auth-aware menu items: Sign in shows when anon, Sign out shows when authed.
+        async function updateAuthMenuState() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                const isAuthed = !!data.user;
+                document.querySelectorAll('.more-item[data-action="login"]').forEach(el => { el.hidden = isAuthed; });
+                document.querySelectorAll('.more-item[data-action="signout"]').forEach(el => { el.hidden = !isAuthed; });
+            } catch { /* ignore */ }
+        }
+        updateAuthMenuState();
+
         moreDropdown.addEventListener('click', (e) => {
             const item = e.target.closest('.more-item[data-action]:not(:disabled)');
             if (!item) return;
             setMenuOpen(false);
             if (item.dataset.action === 'login') openAuthModal();
+            if (item.dataset.action === 'signout') {
+                (async () => {
+                    try {
+                        await fetch('/api/auth/signout', { method: 'POST' });
+                    } catch { /* ignore */ }
+                    location.reload();
+                })();
+            }
         });
 
         function openAuthModal() {
@@ -521,6 +545,7 @@
             if (!authModal) return;
             authModal.hidden = true;
             if (authError) authError.hidden = true;
+            if (authSuccess) authSuccess.hidden = true;
             authForm?.reset();
         }
 
@@ -535,32 +560,32 @@
 
         authForm?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            authError.hidden = true;
             const email = authEmail.value.trim();
-            const password = authPassword.value;
-            if (!email || !password) {
-                authError.textContent = '请输入邮箱和密码';
-                authError.hidden = false;
-                return;
-            }
+            if (!email) return;
             authSubmit.disabled = true;
-            const original = authSubmit.textContent;
-            authSubmit.textContent = 'Signing in…';
+            authError.hidden = true;
+            authSuccess.hidden = true;
             try {
-                const res = await fetch('/api/auth/login', {
+                const res = await fetch('/api/auth/request-link', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email })
                 });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || `登录失败 (${res.status})`);
-                closeAuthModal();
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Request failed');
+                if (data.delivered) {
+                    authSuccess.textContent = `Sign-in link sent to ${email}. Check your inbox (and spam).`;
+                } else if (data.devLink) {
+                    authSuccess.innerHTML = `Email not configured. <a href="${data.devLink}">Click here to sign in</a>.`;
+                } else {
+                    authSuccess.textContent = 'Link generated but delivery failed. Check server logs.';
+                }
+                authSuccess.hidden = false;
             } catch (err) {
                 authError.textContent = err.message;
                 authError.hidden = false;
             } finally {
                 authSubmit.disabled = false;
-                authSubmit.textContent = original;
             }
         });
     }

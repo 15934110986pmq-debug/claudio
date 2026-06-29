@@ -312,13 +312,37 @@ body {
     perspective: 1200px;
 }
 
+@media (max-width: 768px) {
+    .topnav {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 28px;
+    }
+    .view-switch { order: 3; flex-basis: 100%; justify-content: center; }
+    .view-switch { display: flex; }
+    .topnav-brand { font-size: 12px; }
+}
+
 @media (max-width: 600px) {
     .grid {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 24px 14px;
     }
-    .title { font-size: 44px; }
-    .header { flex-direction: column; align-items: flex-start; gap: 18px; }
+    .title { font-size: 38px; }
+    .title-count { font-size: 14px; }
+    .header { flex-direction: column; align-items: flex-start; gap: 14px; padding-bottom: 22px; margin-bottom: 36px; }
+    .controls { gap: 18px; }
+    .control { font-size: 11px; letter-spacing: 0.1em; }
+    .info-title { font-size: 13px; }
+    .info-artist { font-size: 11px; }
+
+    /* Sticky mini-player: tighter on phones */
+    .mini-player { padding: 8px 10px 6px; margin: 6px 0 22px; }
+    .mini-cover { width: 36px; height: 36px; }
+    .mini-title { font-size: 12px; }
+    .mini-artist { font-size: 10px; }
+    .mini-ctrl { padding: 8px; }   /* bigger tap target */
+    .mini-ctrl svg { width: 18px; height: 18px; }
 }
 
 .album {

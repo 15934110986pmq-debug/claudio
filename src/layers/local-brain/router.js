@@ -8,7 +8,13 @@ class IntentRouter {
         }
 
         const prompt = await context.assemble(input, extras);
-        const brainResponse = await claude.generateResponse(prompt);
+
+        let brainResponse;
+        if (extras.onDelta && claude.supportsStreaming && claude.generateResponseStreaming) {
+            brainResponse = await claude.generateResponseStreaming(prompt, extras.onDelta);
+        } else {
+            brainResponse = await claude.generateResponse(prompt);
+        }
 
         return {
             action: 'BROADCAST',
